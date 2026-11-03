@@ -17,7 +17,7 @@ export async function runTurn(model: TextModel, tools: ToolSet, input: string): 
   let next: string | ToolResult[] = input;
   for (let step = 0; step < 16; step++) {
     const result = await model.generate(next, tools);
-    if (result.calls.length === 0) return result.text || "（没有文本回复）";
+    if (result.calls.length === 0) return result.text || "(No text response)";
     next = await Promise.all(result.calls.map(async (call) => {
       let output: string;
       try {
@@ -33,7 +33,7 @@ export async function runTurn(model: TextModel, tools: ToolSet, input: string): 
 
 /** Runs one conversation until input ends or the user exits. */
 export async function runCore(model: TextModel, tools: ToolSet, io: TextIO): Promise<void> {
-  io.write("Athena\n输入 /exit 退出。\n\n");
+  io.write("Athena\nType /exit to quit.\n\n");
   io.write("you> ");
 
   for await (const line of io) {
@@ -45,7 +45,7 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO): Pro
         io.write(`athena> ${await runTurn(model, tools, input)}\n\n`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        io.write(`请求失败：${message}\n\n`);
+        io.write(`Request failed: ${message}\n\n`);
       }
     }
     io.write("you> ");

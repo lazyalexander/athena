@@ -11,6 +11,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   }],
 }));
 server.setRequestHandler(CallToolRequestSchema, async (request) => ({
-  content: [{ type: "text", text: request.params.arguments?.text === "hello" ? "你好" : "未知短语" }],
+  content: [{ type: "text", text: request.params.arguments?.text === "hello" ? "bonjour" : "unknown phrase" }],
 }));
 await server.connect(new StdioServerTransport());

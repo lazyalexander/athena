@@ -21,7 +21,7 @@ test("translation MCP tool is discovered and called by the core loop", async () 
       return { text: input[0]!.output, calls: [] };
     } };
     const output = await runTurn(model, registry, "translate hello");
-    assert.match(output, /你好/);
+    assert.match(output, /bonjour/);
     assert.equal(requests, 2);
   } finally {
     await mcp.close();

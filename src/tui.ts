@@ -8,7 +8,7 @@ import { ToolRegistry } from "./tools.ts";
 
 const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) {
-  console.error("请先设置 OPENAI_API_KEY 环境变量。");
+  console.error("Set the OPENAI_API_KEY environment variable first.");
   process.exit(1);
 }
 const tools = new McpTools();
