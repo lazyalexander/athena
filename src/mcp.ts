@@ -1,19 +1,26 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { tmpdir } from "node:os";
 import { ToolRegistry } from "./tools.ts";
+import { resolveSandboxExec, wrapSandboxed } from "./sandbox.ts";
 
-export type McpServerConfig = Record<string, { command: string; args?: string[]; env?: Record<string, string> }>;
+export type McpServerConfig = Record<string, { command: string; args?: string[]; env?: Record<string, string>; sandbox?: boolean }>;
 export class McpTools {
   private clients: Client[] = [];
 
-  async connect(config: McpServerConfig, registry: ToolRegistry): Promise<void> {
+  async connect(config: McpServerConfig, registry: ToolRegistry, cwd?: string): Promise<void> {
     try {
+      const sandboxExec = await resolveSandboxExec();
       for (const [server, options] of Object.entries(config)) {
         if (!options.command || !Array.isArray(options.args ?? [])) throw new Error(`Invalid MCP server: ${server}`);
+        const launch = options.sandbox === false || !cwd
+          ? { command: options.command, args: options.args ?? [] }
+          : wrapSandboxed(options.command, options.args ?? [], cwd, tmpdir(), sandboxExec, [process.cwd()]);
         const client = new Client({ name: "athena", version: "0.1.0" });
         const transport = new StdioClientTransport({
-          command: options.command,
-          args: options.args ?? [],
+          command: launch.command,
+          args: launch.args,
+          cwd,
           env: { ...process.env, ...options.env } as Record<string, string>,
         });
         await client.connect(transport);

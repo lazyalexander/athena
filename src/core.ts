@@ -1,4 +1,6 @@
 import type { ToolSet } from "./tools.ts";
+import type { Workspace } from "./workspace.ts";
+import { TurnToolSet } from "./permissions.ts";
 
 export type ToolRequest = { name: string; callId: string; arguments: string };
 export type ToolResult = { callId: string; output: string };
@@ -12,40 +14,123 @@ export interface TextIO extends AsyncIterable<string> {
   write(text: string): void;
 }
 
-/** Resolve model tool requests until it produces a final text response. */
-export async function runTurn(model: TextModel, tools: ToolSet, input: string): Promise<string> {
+export interface ModelControl {
+  readonly current: string;
+  localModels(): Promise<string[]>;
+  select(provider: "ollama" | "openai", name?: string): Promise<string>;
+}
+
+export type ReActEvent =
+  | { type: "action"; step: number; tool: string; callId: string }
+  | { type: "observation"; step: number; tool: string; callId: string; ok: boolean };
+
+export type ReActOptions = {
+  maxSteps?: number;
+  onEvent?: (event: ReActEvent) => void;
+};
+
+/** Alternate model decisions and tool observations until a final answer. */
+export async function runTurn(model: TextModel, tools: ToolSet, input: string, options: ReActOptions = {}): Promise<string> {
+  const maxSteps = options.maxSteps ?? 16;
+  if (!Number.isInteger(maxSteps) || maxSteps < 1) throw new Error("maxSteps must be a positive integer");
   let next: string | ToolResult[] = input;
-  for (let step = 0; step < 16; step++) {
+  for (let step = 1; step <= maxSteps; step++) {
     const result = await model.generate(next, tools);
     if (result.calls.length === 0) return result.text || "(No text response)";
-    next = await Promise.all(result.calls.map(async (call) => {
+    const seen = new Set<string>();
+    const observations: ToolResult[] = [];
+    for (const call of result.calls) {
+      if (!call.callId || seen.has(call.callId)) throw new Error("Duplicate or missing tool call ID");
+      seen.add(call.callId);
+      options.onEvent?.({ type: "action", step, tool: call.name, callId: call.callId });
       let output: string;
+      let ok = true;
       try {
         output = await tools.call(call.name, JSON.parse(call.arguments));
       } catch (error) {
+        ok = false;
         output = `Tool error: ${error instanceof Error ? error.message : String(error)}`;
       }
-      return { callId: call.callId, output };
-    }));
+      observations.push({ callId: call.callId, output });
+      options.onEvent?.({ type: "observation", step, tool: call.name, callId: call.callId, ok });
+    }
+    next = observations;
   }
-  throw new Error("Tool call limit reached (16)");
+  throw new Error(`ReAct step limit reached (${maxSteps})`);
 }
 
 /** Runs one conversation until input ends or the user exits. */
-export async function runCore(model: TextModel, tools: ToolSet, io: TextIO): Promise<void> {
-  io.write("Athena\nType /exit to quit.\n\n");
+export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, workspace?: Workspace, models?: ModelControl): Promise<void> {
+  io.write("Athena\nType /exit to quit. Use /workspace or /model for settings.\n\n");
   io.write("you> ");
 
-  for await (const line of io) {
-    const input = line.trim();
+  const lines = io[Symbol.asyncIterator]();
+  while (true) {
+    const line = await lines.next();
+    if (line.done) break;
+    const input = line.value.trim();
     if (input === "/exit" || input === "/quit") break;
 
+    if (input === "/model" || input.startsWith("/model ")) {
+      if (!models) {
+        io.write("Model selection is unavailable.\n\n");
+      } else {
+        const parts = input.split(/\s+/);
+        try {
+          if (parts.length === 1) {
+            io.write(`Current model: ${models.current}\n`);
+            const local = await models.localModels();
+            io.write(`Local models: ${local.length ? local.join(", ") : "(none installed)"}\n`);
+            io.write("Switch with /model ollama <name> or /model openai <name>.\n\n");
+          } else if ((parts[1] === "ollama" || parts[1] === "openai") && parts.length <= 3) {
+            const selected = await models.select(parts[1], parts[2]);
+            io.write(`Model: ${selected} (new conversation)\n\n`);
+          } else {
+            io.write("Usage: /model [ollama|openai] [name]\n\n");
+          }
+        } catch (error) {
+          io.write(`Model error: ${error instanceof Error ? error.message : String(error)}\n\n`);
+        }
+      }
+      io.write("you> ");
+      continue;
+    }
+
+    if (input === "/workspace" || input.startsWith("/workspace ")) {
+      if (!workspace) {
+        io.write("No workspace is configured.\n\n");
+      } else {
+        const path = input.slice("/workspace".length).trim();
+        try {
+          if (path) await workspace.switchTo(path);
+          io.write(`Workspace: ${workspace.root}\n\n`);
+        } catch (error) {
+          io.write(`Workspace error: ${error instanceof Error ? error.message : String(error)}\n\n`);
+        }
+      }
+      io.write("you> ");
+      continue;
+    }
+
     if (input) {
+      const turnTools = new TurnToolSet(tools, async (request) => {
+        io.write(`Allow ${request.tool} ${request.arguments} for this turn? [y/N] `);
+        const decision = await lines.next();
+        return !decision.done && /^(y|yes)$/i.test(decision.value.trim());
+      });
       try {
-        io.write(`athena> ${await runTurn(model, tools, input)}\n\n`);
+        const answer = await runTurn(model, turnTools, input, {
+          onEvent: (event) => {
+            if (event.type === "action") io.write(`  → ${event.tool}\n`);
+            else io.write(`  ← ${event.tool}: ${event.ok ? "ok" : "error"}\n`);
+          },
+        });
+        io.write(`athena> ${answer}\n\n`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         io.write(`Request failed: ${message}\n\n`);
+      } finally {
+        turnTools.close();
       }
     }
     io.write("you> ");

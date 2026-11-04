@@ -6,7 +6,7 @@ const server = new Server({ name: "translation-test", version: "0.1.0" }, { capa
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [{
     name: "translate",
-    description: "Translate a small test phrase to Chinese",
+    description: "Translate a small test phrase to French",
     inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
   }],
 }));

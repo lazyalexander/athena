@@ -1,5 +1,6 @@
 import type { ModelStep, ToolResult } from "./core.ts";
 import type { ToolSet } from "./tools.ts";
+import type { Workspace } from "./workspace.ts";
 
 type ResponseBody = {
   id?: string;
@@ -17,14 +18,20 @@ export class OpenAIClient {
   private previousResponseId?: string;
   private readonly apiKey: string;
   private readonly model: string;
+  private readonly workspace?: Workspace;
+  private readonly baseUrl: string;
 
-  constructor(apiKey: string, model: string) {
+  constructor(apiKey: string, model: string, workspace?: Workspace, baseUrl = "https://api.openai.com/v1") {
     this.apiKey = apiKey;
     this.model = model;
+    this.workspace = workspace;
+    const url = new URL(baseUrl);
+    if (url.protocol !== "https:") throw new Error("API base URL must use HTTPS");
+    this.baseUrl = url.href.replace(/\/$/, "");
   }
 
   async generate(input: string | ToolResult[], tools: ToolSet): Promise<ModelStep> {
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const response = await fetch(`${this.baseUrl}/responses`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -32,6 +39,10 @@ export class OpenAIClient {
       },
       body: JSON.stringify({
         model: this.model,
+        instructions: [
+          "Use tools when the user's request requires an external action or information. After each tool result, decide whether another tool call is needed, then provide a final answer. Do not claim an action succeeded unless its tool result confirms it.",
+          ...(this.workspace ? [`Current workspace: ${this.workspace.root}. This path is context only; use available tools for any file operation.`] : []),
+        ].join("\n"),
         input: typeof input === "string" ? input : input.map((result) => ({
           type: "function_call_output",
           call_id: result.callId,
