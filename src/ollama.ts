@@ -1,6 +1,9 @@
 import type { ModelStep, ToolResult } from "./core.ts";
+import type { Provider } from "./providers.ts";
 import type { ToolSet } from "./tools.ts";
 import type { Workspace } from "./workspace.ts";
+
+type OllamaTags = { models?: Array<{ name?: string }> };
 
 type ChatMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -92,4 +95,24 @@ export class OllamaClient {
     });
     return { text: body.message.content ?? "", calls };
   }
+}
+
+export function createOllamaProvider(config: { host?: string; model?: string } = {}): Provider {
+  const host = config.host ?? "http://127.0.0.1:11434";
+  const listModels = async (): Promise<string[]> => {
+    const response = await fetch(`${host.replace(/\/$/, "")}/api/tags`);
+    if (!response.ok) throw new Error(`Ollama model list failed: HTTP ${response.status}`);
+    const body = (await response.json()) as OllamaTags;
+    return (body.models ?? []).flatMap((model) => model.name ? [model.name] : []).sort();
+  };
+  return {
+    id: "ollama",
+    defaultModel: config.model ?? "qwen3:1.7b",
+    createClient: (model, workspace) => new OllamaClient(model, workspace, host),
+    listModels,
+    validateModel: async (name) => {
+      const installed = await listModels();
+      if (!installed.includes(name)) throw new Error(`Local model is not installed: ${name}`);
+    },
+  };
 }
