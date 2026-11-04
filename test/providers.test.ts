@@ -48,3 +48,24 @@ test("openai provider requires an API key and does not list models", async () =>
   assert.equal(provider.listModels, undefined);
   assert.equal(provider.validateModel, undefined);
 });
+
+test("deepseek provider uses its own key env var and base URL", async () => {
+  const { createResponsesProvider } = await import("../src/openai.ts");
+  const provider = createResponsesProvider({
+    id: "deepseek",
+    keyEnv: "DEEPSEEK_API_KEY",
+    defaultModel: "deepseek-chat",
+    baseUrl: "https://api.deepseek.com",
+  });
+  assert.equal(provider.id, "deepseek");
+  assert.equal(provider.defaultModel, "deepseek-chat");
+  assert.throws(() => provider.createClient("deepseek-chat"), /DEEPSEEK_API_KEY/);
+  const withKey = createResponsesProvider({
+    id: "deepseek",
+    keyEnv: "DEEPSEEK_API_KEY",
+    apiKey: "test-key",
+    defaultModel: "deepseek-chat",
+    baseUrl: "https://api.deepseek.com",
+  });
+  assert.ok(withKey.createClient("deepseek-chat"));
+});
