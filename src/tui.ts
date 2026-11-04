@@ -8,7 +8,7 @@ import { Workspace } from "./workspace.ts";
 import { registerFileTools } from "./file-tools.ts";
 import { ModelManager } from "./model-manager.ts";
 import { createOllamaProvider } from "./ollama.ts";
-import { createOpenAIProvider } from "./openai.ts";
+import { createOpenAIProvider, createResponsesProvider } from "./openai.ts";
 import { ProviderRegistry } from "./providers.ts";
 
 // ollama is the default only because it is the one provider that works without credentials.
@@ -19,6 +19,14 @@ providers.register(createOpenAIProvider({
   apiKey: process.env.OPENAI_API_KEY,
   model: process.env.OPENAI_MODEL,
   baseUrl: process.env.ATHENA_API_BASE_URL,
+}));
+providers.register(createResponsesProvider({
+  id: "deepseek",
+  keyEnv: "DEEPSEEK_API_KEY",
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  model: process.env.DEEPSEEK_MODEL,
+  baseUrl: "https://api.deepseek.com",
+  defaultModel: "deepseek-chat",
 }));
 const tools = new McpTools();
 const registry = new ToolRegistry();

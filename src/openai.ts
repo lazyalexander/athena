@@ -72,13 +72,24 @@ export class OpenAIClient {
   }
 }
 
-export function createOpenAIProvider(config: { apiKey?: string; model?: string; baseUrl?: string } = {}): Provider {
+export function createResponsesProvider(config: {
+  id: string;
+  keyEnv: string;
+  defaultModel: string;
+  apiKey?: string;
+  model?: string;
+  baseUrl?: string;
+}): Provider {
   return {
-    id: "openai",
-    defaultModel: config.model ?? "gpt-6-astra",
+    id: config.id,
+    defaultModel: config.model ?? config.defaultModel,
     createClient: (model, workspace) => {
-      if (!config.apiKey) throw new Error("Set OPENAI_API_KEY before selecting an OpenAI model");
+      if (!config.apiKey) throw new Error(`Set ${config.keyEnv} before selecting the ${config.id} provider`);
       return new OpenAIClient(config.apiKey, model, workspace, config.baseUrl);
     },
   };
+}
+
+export function createOpenAIProvider(config: { apiKey?: string; model?: string; baseUrl?: string } = {}): Provider {
+  return createResponsesProvider({ id: "openai", keyEnv: "OPENAI_API_KEY", defaultModel: "gpt-6-astra", ...config });
 }
