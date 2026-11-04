@@ -18,6 +18,10 @@ Athena 以当前目录作为工作区启动。用 `ATHENA_WORKSPACE` 指定其�
 
 当前根目录会作为上下文随每次请求发送给模型。MCP 服务器在初始工作区目录中启动。工作区路径不是沙箱：切换工作区时已有的 MCP 服务器进程不会重启，仍可访问操作系统允许的路径。当前的轮次级批准门和后续设计见 `permissions.md`（[中文](permissions.zh.md)）。
 
+## 会话恢复
+
+Athena 会把会话事件（轮次、模型步骤、工具结果）追加写入工作区的 `.athena/journal.jsonl`。如果进程在一轮对话中途崩溃，下次启动会归档旧日志、把对话恢复到模型中，并注入 `<turn_aborted>` 标记，告知模型上一轮被中断、不要重复执行——push、写文件等副作用不会被重放。恢复需要与崩溃前相同的 provider 配置（API key、可达的 Ollama 地址）；恢复失败时 Athena 会打印原因并全新开始。`/new` 丢弃当前会话、开始新对话；切换模型或工作区效果相同。建议把 `.athena/` 加入项目的 `.gitignore`，避免会话日志进入版本控制。
+
 ## 内置文件工具
 
 Athena 为当前工作区内的 UTF-8 文件注册 `read_file`、`write_file` 和 `edit_file`。`write_file` 默认创建新文件；替换已有文件需要提供 `read_file` 返回的 `sha256` 作为 `expectedSha256`。`edit_file` 精确替换一处 `oldText` 为 `newText`。每次操作上限 1 MiB。来自 TUI 的工具调用都要经过轮次级批准门。

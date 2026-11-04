@@ -18,6 +18,10 @@ Athena starts with the current directory as its workspace. Set `ATHENA_WORKSPACE
 
 The current root is sent to the model as context on each request. MCP servers start in the initial workspace directory. The workspace path is not a sandbox: existing MCP server processes are not restarted when the workspace changes and can still access paths allowed by the operating system. See `permissions.md` for the current turn-level gate and remaining design work.
 
+## Session recovery
+
+Athena appends session events (turns, model steps, tool results) to `.athena/journal.jsonl` in the workspace. If the process dies mid-turn, the next startup archives the old log, restores the conversation into the model, and injects a `<turn_aborted>` notice telling the model the last turn was interrupted and must not be repeated — side effects like pushes or file writes are not replayed. Restoration needs the same provider configuration as before the crash (API key, reachable Ollama host); if it fails, Athena prints the reason and starts fresh. `/new` discards the current session and starts a new conversation; switching models or workspaces does the same. Add `.athena/` to your project's `.gitignore` so session logs stay out of version control.
+
 ## Built-in file tools
 
 Athena registers `read_file`, `write_file`, and `edit_file` for UTF-8 files in the current workspace. `write_file` creates a new file by default; replacing an existing file requires the `sha256` returned by `read_file` as `expectedSha256`. `edit_file` replaces exactly one occurrence of `oldText` with `newText`. Each operation is limited to 1 MiB. Tool calls from the TUI pass through the turn-level approval gate.
