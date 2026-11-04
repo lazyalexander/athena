@@ -4,7 +4,7 @@ import { TurnToolSet } from "./permissions.ts";
 
 export type ToolRequest = { name: string; callId: string; arguments: string };
 export type ToolResult = { callId: string; output: string };
-export type ModelStep = { text: string; calls: ToolRequest[] };
+export type ModelStep = { text: string; calls: ToolRequest[]; responseId?: string };
 
 export interface TextModel {
   generate(input: string | ToolResult[], tools: ToolSet): Promise<ModelStep>;
@@ -22,6 +22,7 @@ export interface ModelControl {
 }
 
 export type ReActEvent =
+  | { type: "step"; step: number; text: string; calls: ToolRequest[]; responseId?: string }
   | { type: "action"; step: number; tool: string; callId: string }
   | { type: "observation"; step: number; tool: string; callId: string; ok: boolean };
 
@@ -37,6 +38,7 @@ export async function runTurn(model: TextModel, tools: ToolSet, input: string, o
   let next: string | ToolResult[] = input;
   for (let step = 1; step <= maxSteps; step++) {
     const result = await model.generate(next, tools);
+    options.onEvent?.({ type: "step", step, text: result.text, calls: result.calls, responseId: result.responseId });
     if (result.calls.length === 0) return result.text || "(No text response)";
     const seen = new Set<string>();
     const observations: ToolResult[] = [];

@@ -68,7 +68,7 @@ export class OpenAIClient {
       ? (item.content ?? []).filter((part) => part.type === "output_text").map((part) => part.text ?? "")
       : []).join("");
     this.previousResponseId = body.id;
-    return { text, calls };
+    return { text, calls, responseId: body.id };
   }
 }
 
