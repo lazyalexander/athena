@@ -3,3 +3,6 @@ node_modules/
 .env.*
 !.env.example
 *.log
+
+# Local working plans, not for publishing
+docs/superpowers/plans/

@@ -1,3 +1,5 @@
+**English** | [中文](permissions.zh.md)
+
 # Permission system
 
 Status: the TUI has a turn-scoped, exact-call approval gate. The rest of this document records possible extensions. MCP servers do not enforce these host permissions.
@@ -77,85 +79,3 @@ The approval prompt is a host control, separate from chat input. It displays the
 4. Add persistent grants and revocation after canonical resource scopes and file permissions are specified. Test expiry, queued-call rechecks, and server-wide revocation.
 
 The first milestone is complete when an unapproved MCP tool call cannot reach `client.callTool`, an approved exact call can, and a denied call returns a clear result to the model.
-
----
-
-# 权限系统（中文）
-
-状态：TUI 已具备轮次范围、精确到单次调用的批准门。本文档其余部分记录可能的扩展。MCP 服务器不强制执行这些宿主权限。
-
-## 已实现的轮次范围
-
-每条用户消息都会创建一个新的 `TurnToolSet`。分发前，它会展示确切的工具名和 JSON 参数并等待批准。只有 `y` 或 `yes` 表示批准。同一调用在该轮次内重复时不再提示。参数变更、换一个工具、或下一条用户消息都需要重新决定。拒绝会在该轮次内缓存。EOF 视为拒绝。未知工具在提示前就会被拒绝。轮次结束或失败时批准门被清除。被拒绝时模型会收到工具错误，可以在没有该工具的情况下继续。
-
-此批准门只适用于经过 TUI 的 `runCore` 路径的调用。直接使用 `runTurn` 配合原始 `ToolRegistry` 的库调用不会自动套用。批准只存在于内存中；目前没有持久授权、审计回执或调用中途取消。
-
-## 边界与归属
-
-授权与决定由 Athena 宿主拥有。模型可以请求工具调用，但不能自我授权，也不能把拒绝解读为"可以用更宽参数重试"的许可。MCP 工具的描述和结果都是不可信输入。服务器进程仍可在 Athena 工具门之外行动，因此启动一个服务器并向其传递环境变量需要独立的信任决策。
-
-当前批准门覆盖经过 TUI 包装的 `ToolRegistry` 的调用，不覆盖模型请求、本地终端输入、或运行中的 MCP 服务器独立执行的动作。
-
-## 未来的权限标识
-
-不能只按面向模型的名称授权。权限目标要有稳定标识：`{serverId, toolName, capability, resource}`。`serverId` 来自宿主配置，而非工具描述。`capability` 是 `read`、`write`、`execute`、`network`、`unknown` 之一，由宿主在配置中指派。`resource` 在工具支持时是规范化路径、源(origin)或其他宿主定义的范围。未分类的工具为 `unknown`，只能逐次批准。
-
-每条授权记录 `grantId`、目标、范围、签发者、创建时间、过期时间和单调递增的策略版本号。范围（scope）为以下之一：
-
-| 范围 | 生命周期 | 用途 |
-| --- | --- | --- |
-| `once` | 一次匹配的调用 | 默认的交互式批准 |
-| `session` | 当前 Athena 进程 | 一次对话中的重复调用 |
-| `persistent` | 直到过期或撤销 | 明确信任、范围狭窄的工作 |
-
-授权绝不隐含包含其他服务器、工具、能力或更宽的资源。`read` 不隐含 `write`。新的工具名或服务器标识变化都需要新的决定。
-
-## 决策流程
-
-1. 模型返回工具请求。Athena 解析并校验其 JSON 参数。
-2. 宿主把请求解析为已注册的工具标识和规范化资源。解析失败即拒绝该调用。
-3. 权限门先评估显式拒绝规则，再评估有效授权。已过期或已撤销的授权不可用。
-4. 无匹配授权时，暂停该调用，向用户展示服务器、工具、能力、具体参数、资源和拟授予的范围。默认选择是拒绝。用户决定前不发送工具结果。
-5. 批准后，签发授权并只执行被审查的那个请求。`once` 的授权在执行前被原子性地消耗。
-6. 记录回执：请求 ID、授权 ID 或拒绝原因、策略版本、起止时间和结果。向模型返回简洁的工具结果或拒绝信息。
-
-权限门在 `Tool.execute` 之前立即运行，即使模型已经见过工具定义。缓存的模型响应或参数变更都不能绕过此检查。并行工具请求独立评估。
-
-## 授权、升级与撤销
-
-**授权：** 用户可以对展示的精确目标和资源批准 `once`、`session` 或 `persistent`。持久授权要求显式过期时间，存放在用户拥有、访问受限的本地策略文件中。任何模型文本或 MCP 响应都不能创建授权。
-
-**升级：** 超出当前授权的调用是新请求。展示旧的和拟议的能力/资源范围、现有授权不匹配的原因、以及待执行的确切调用。批准会创建新授权；绝不在原授权上原地修改。首个实现中，只允许同一精确目标从 `once` 升级到 `session`；更宽的资源和持久化升级推迟到资源规范化实现之后。
-
-**撤销：** 用户可以按 ID、按目标、或按服务器的全部授权来撤销。立即递增策略版本号。新调用按拒绝处理（fail closed）。排队的调用必须在执行前立即重新检查。已在运行的调用一般无法撤销；工具支持取消时中止它，否则如实报告。撤销不会擦除回执，也不保证回滚外部影响。
-
-## 拟议接口
-
-```ts
-type Decision =
-  | { kind: "allow"; grantId: string; policyRevision: number }
-  | { kind: "deny"; reason: string }
-  | { kind: "ask"; request: PermissionRequest };
-
-interface PermissionGate {
-  evaluate(request: PermissionRequest): Promise<Decision>;
-  authorize(request: PermissionRequest, decision: Decision): Promise<void>;
-  grant(request: PermissionRequest, scope: "once" | "session" | "persistent", expiresAt?: string): Promise<Grant>;
-  revoke(grantId: string): Promise<void>;
-}
-```
-
-`PermissionRequest` 应携带唯一调用 ID、稳定的工具标识、解析后的参数、规范化资源、以及该次精确调用的摘要（digest）。`authorize` 在执行前直接重新检查摘要和当前策略版本。宿主应拥有包装 `ToolRegistry` 的 `GuardedToolSet`；OpenAI 适配器和 MCP 适配器都不应包含批准逻辑。
-
-## TUI 行为
-
-批准提示是宿主控件，与聊天输入分离。它展示待执行的确切调用，接受 `deny`、`once` 或 `session`；之后对支持的资源范围开放 `persistent`。TUI 应提供 `/permissions` 列出授权、`/revoke <grantId>` 撤销授权。拒绝会以工具结果的形式返回给模型，使其能在没有该能力的情况下继续。沉默、EOF 或模型消息都不构成批准。
-
-## 交付顺序与验收
-
-1. 为工具添加标识和宿主指派的能力元数据。未知能力保持只能逐次批准。
-2. 添加 `GuardedToolSet`：默认拒绝、一次性授权、精确调用摘要检查和回执。测试参数变更或未知工具不能复用授权。
-3. 添加 TUI 批准提示和会话级授权。测试两个参数不同的并行调用以及拒绝/EOF 行为。
-4. 在规范化资源范围和文件权限定义之后，添加持久授权和撤销。测试过期、排队调用重检和按服务器整体撤销。
-
-第一个里程碑的完成标准：未批准的 MCP 工具调用无法到达 `client.callTool`；批准的精确调用可以到达；被拒绝的调用向模型返回清晰的结果。
