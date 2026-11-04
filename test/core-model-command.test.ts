@@ -27,5 +27,6 @@ test("/model command lists providers from the registry and rejects unknown ids",
   assert.match(text, /\(provider does not support listing\)/);
   assert.match(text, /Switch with \/model <provider> <name>\. Providers: a, b/);
   assert.match(text, /Model: a: x \(new conversation\)/);
+  assert.match(text, /Unknown provider: zzz\. Available: a, b/);
   assert.match(text, /Usage: \/model \[<provider>\] \[name\]/);
 });

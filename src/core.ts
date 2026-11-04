@@ -90,7 +90,9 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
             const selected = await models.select(parts[1], parts[2]);
             io.write(`Model: ${selected} (new conversation)\n\n`);
           } else {
-            io.write("Usage: /model [<provider>] [name]\n\n");
+            const unknown = parts.length > 1 && !ids.includes(parts[1])
+              ? `Unknown provider: ${parts[1]}. Available: ${ids.join(", ")}\n` : "";
+            io.write(`${unknown}Usage: /model [<provider>] [name]\n\n`);
           }
         } catch (error) {
           io.write(`Model error: ${error instanceof Error ? error.message : String(error)}\n\n`);
