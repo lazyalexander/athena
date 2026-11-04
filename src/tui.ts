@@ -6,10 +6,20 @@ import { readFile } from "node:fs/promises";
 import { ToolRegistry } from "./tools.ts";
 import { Workspace } from "./workspace.ts";
 import { registerFileTools } from "./file-tools.ts";
-import { ModelManager, type ModelProvider } from "./model-manager.ts";
+import { ModelManager } from "./model-manager.ts";
+import { createOllamaProvider } from "./ollama.ts";
+import { createOpenAIProvider } from "./openai.ts";
+import { ProviderRegistry } from "./providers.ts";
 
-const provider = (process.env.ATHENA_PROVIDER ?? "ollama") as ModelProvider;
-if (provider !== "ollama" && provider !== "openai") throw new Error(`Unknown provider: ${provider}`);
+// ollama is the default only because it is the one provider that works without credentials.
+const DEFAULT_PROVIDER = "ollama";
+const providers = new ProviderRegistry();
+providers.register(createOllamaProvider({ host: process.env.OLLAMA_HOST, model: process.env.OLLAMA_MODEL }));
+providers.register(createOpenAIProvider({
+  apiKey: process.env.OPENAI_API_KEY,
+  model: process.env.OPENAI_MODEL,
+  baseUrl: process.env.ATHENA_API_BASE_URL,
+}));
 const tools = new McpTools();
 const registry = new ToolRegistry();
 const workspace = await Workspace.open(process.env.ATHENA_WORKSPACE ?? process.cwd());
@@ -18,14 +28,7 @@ if (process.env.ATHENA_MCP_CONFIG) {
   const config = JSON.parse(await readFile(process.env.ATHENA_MCP_CONFIG, "utf8")) as { mcpServers: McpServerConfig };
   await tools.connect(config.mcpServers, registry, workspace.root);
 }
-const model = new ModelManager({
-  provider,
-  ollamaModel: process.env.OLLAMA_MODEL,
-  ollamaHost: process.env.OLLAMA_HOST,
-  openaiModel: process.env.OPENAI_MODEL,
-  apiKey: process.env.OPENAI_API_KEY,
-  apiBaseUrl: process.env.ATHENA_API_BASE_URL,
-}, workspace);
+const model = new ModelManager(providers, { provider: process.env.ATHENA_PROVIDER ?? DEFAULT_PROVIDER }, workspace);
 const terminal = createInterface({ input: stdin, crlfDelay: Infinity });
 
 try {
