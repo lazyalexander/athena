@@ -35,3 +35,16 @@ test("ollama provider lists and validates installed local models", async () => {
     globalThis.fetch = original;
   }
 });
+
+test("openai provider requires an API key and does not list models", async () => {
+  const { createOpenAIProvider } = await import("../src/openai.ts");
+  const { OpenAIClient } = await import("../src/openai.ts");
+  const provider = createOpenAIProvider();
+  assert.equal(provider.id, "openai");
+  assert.equal(provider.defaultModel, "gpt-6-astra");
+  assert.throws(() => provider.createClient("gpt-6-astra"), /OPENAI_API_KEY/);
+  const withKey = createOpenAIProvider({ apiKey: "test-key" });
+  assert.ok(withKey.createClient("gpt-6-astra") instanceof OpenAIClient);
+  assert.equal(provider.listModels, undefined);
+  assert.equal(provider.validateModel, undefined);
+});

@@ -1,4 +1,5 @@
 import type { ModelStep, ToolResult } from "./core.ts";
+import type { Provider } from "./providers.ts";
 import type { ToolSet } from "./tools.ts";
 import type { Workspace } from "./workspace.ts";
 
@@ -69,4 +70,15 @@ export class OpenAIClient {
     this.previousResponseId = body.id;
     return { text, calls };
   }
+}
+
+export function createOpenAIProvider(config: { apiKey?: string; model?: string; baseUrl?: string } = {}): Provider {
+  return {
+    id: "openai",
+    defaultModel: config.model ?? "gpt-6-astra",
+    createClient: (model, workspace) => {
+      if (!config.apiKey) throw new Error("Set OPENAI_API_KEY before selecting an OpenAI model");
+      return new OpenAIClient(config.apiKey, model, workspace, config.baseUrl);
+    },
+  };
 }
