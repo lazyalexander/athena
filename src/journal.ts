@@ -42,7 +42,12 @@ export class Journal {
   }
 
   archive(): string {
-    const archived = join(this.path, "..", `journal-${Date.now()}.jsonl`);
+    const dir = join(this.path, "..");
+    const stamp = Date.now();
+    let archived = join(dir, `journal-${stamp}.jsonl`);
+    for (let suffix = 2; existsSync(archived); suffix++) {
+      archived = join(dir, `journal-${stamp}-${suffix}.jsonl`);
+    }
     renameSync(this.path, archived);
     return archived;
   }
