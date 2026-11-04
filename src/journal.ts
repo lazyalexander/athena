@@ -85,3 +85,26 @@ export function conversationStart(events: JournalEvent[]): { provider: string; m
   }
   return undefined;
 }
+
+/** Events of the current conversation: everything from the last conversation_start on. */
+export function currentConversation(events: JournalEvent[]): JournalEvent[] {
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i].type === "conversation_start") return events.slice(i);
+  }
+  return events;
+}
+
+/**
+ * Last response id that is safe to resume a Responses-API chain from: a step with no tool
+ * calls. A step whose calls were answered in the journal is still unsafe — if the follow-up
+ * request crashed mid-generation, the server chain never received those outputs.
+ */
+export function lastSafeResponseId(events: JournalEvent[]): string | undefined {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i];
+    if (event.type === "assistant_step" && event.responseId && event.calls.length === 0) {
+      return event.responseId;
+    }
+  }
+  return undefined;
+}

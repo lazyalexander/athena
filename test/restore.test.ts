@@ -83,6 +83,48 @@ test("openai restore without any responseId in the journal throws", () => {
   assert.throws(() => provider.restore!("gpt-6-astra", events, NOTICE), /no response/i);
 });
 
+test("openai restore resumes from the last step with no calls, not a broken tail", async () => {
+  const original = globalThis.fetch;
+  try {
+    let captured: { previous_response_id?: string } | undefined;
+    globalThis.fetch = async (_url, init) => {
+      captured = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ id: "resp_new", output: [] }), { status: 200 });
+    };
+    const events: JournalEvent[] = [
+      { type: "conversation_start", provider: "openai", model: "gpt-6-astra", ts: 1 },
+      { type: "assistant_step", turnId: "t1", text: "fine", calls: [], responseId: "resp_safe" },
+      { type: "assistant_step", turnId: "t2", text: "", calls: [{ name: "write_file", callId: "c1", arguments: "{}" }], responseId: "resp_broken" },
+    ];
+    const provider = createOpenAIProvider({ apiKey: "test-key" });
+    const client = provider.restore!("gpt-6-astra", events, NOTICE);
+    await client.generate("next", new ToolRegistry());
+    assert.equal(captured?.previous_response_id, "resp_safe");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("openai restore throws when the only response ids have unanswered calls", () => {
+  const provider = createOpenAIProvider({ apiKey: "test-key" });
+  const events: JournalEvent[] = [
+    { type: "conversation_start", provider: "openai", model: "gpt-6-astra", ts: 1 },
+    { type: "assistant_step", turnId: "t1", text: "", calls: [{ name: "write_file", callId: "c1", arguments: "{}" }], responseId: "resp_broken" },
+  ];
+  assert.throws(() => provider.restore!("gpt-6-astra", events, NOTICE), /no response/i);
+});
+
+test("ollamaHistoryFromEvents ignores events before the last conversation_start", () => {
+  const events: JournalEvent[] = [
+    { type: "user", turnId: "t0", text: "stale from an older conversation" },
+    { type: "conversation_start", provider: "ollama", model: "qwen3:1.7b", ts: 1 },
+    { type: "user", turnId: "t1", text: "hello" },
+    { type: "assistant_step", turnId: "t1", text: "hi", calls: [] },
+  ];
+  const { messages } = ollamaHistoryFromEvents(events);
+  assert.deepEqual(messages.map((m) => m.content), ["hello", "hi"]);
+});
+
 test("ModelManager.restore switches to the journaled provider and reset clears the flag", async () => {
   const registry = new ProviderRegistry();
   registry.register(createOllamaProvider());

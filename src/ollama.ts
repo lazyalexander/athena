@@ -1,5 +1,5 @@
 import type { ModelStep, ToolResult } from "./core.ts";
-import type { JournalEvent } from "./journal.ts";
+import { currentConversation, type JournalEvent } from "./journal.ts";
 import type { Provider } from "./providers.ts";
 import type { ToolSet } from "./tools.ts";
 import type { Workspace } from "./workspace.ts";
@@ -15,6 +15,7 @@ type ChatMessage = {
 
 /** Rebuilds ollama chat history from journal events, dropping an incomplete trailing step. */
 export function ollamaHistoryFromEvents(events: JournalEvent[]): { messages: ChatMessage[]; pending: Map<string, string> } {
+  events = currentConversation(events);
   const answered = new Set<string>();
   for (const event of events) {
     if (event.type === "tool_result") answered.add(event.callId);

@@ -1,4 +1,5 @@
 import type { ModelStep, ToolResult } from "./core.ts";
+import { currentConversation, lastSafeResponseId } from "./journal.ts";
 import type { Provider } from "./providers.ts";
 import type { ToolSet } from "./tools.ts";
 import type { Workspace } from "./workspace.ts";
@@ -96,10 +97,7 @@ export function createResponsesProvider(config: {
     },
     restore: (model, events, notice, workspace) => {
       if (!config.apiKey) throw new Error(`Set ${config.keyEnv} before selecting the ${config.id} provider`);
-      let responseId: string | undefined;
-      for (const event of events) {
-        if (event.type === "assistant_step" && event.responseId) responseId = event.responseId;
-      }
+      const responseId = lastSafeResponseId(currentConversation(events));
       if (!responseId) throw new Error("Journal has no response id to resume");
       const client = new OpenAIClient(config.apiKey, model, workspace, config.baseUrl, notice);
       client.resume(responseId);
