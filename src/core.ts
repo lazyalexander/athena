@@ -16,8 +16,9 @@ export interface TextIO extends AsyncIterable<string> {
 
 export interface ModelControl {
   readonly current: string;
-  localModels(): Promise<string[]>;
-  select(provider: "ollama" | "openai", name?: string): Promise<string>;
+  listModels(): Promise<string[]>;
+  select(provider: string, name?: string): Promise<string>;
+  providerIds(): string[];
 }
 
 export type ReActEvent =
@@ -76,17 +77,20 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
         io.write("Model selection is unavailable.\n\n");
       } else {
         const parts = input.split(/\s+/);
+        const ids = models.providerIds();
         try {
           if (parts.length === 1) {
             io.write(`Current model: ${models.current}\n`);
-            const local = await models.localModels();
-            io.write(`Local models: ${local.length ? local.join(", ") : "(none installed)"}\n`);
-            io.write("Switch with /model ollama <name> or /model openai <name>.\n\n");
-          } else if ((parts[1] === "ollama" || parts[1] === "openai") && parts.length <= 3) {
+            const available = await models.listModels();
+            io.write(available.length
+              ? `Available models: ${available.join(", ")}\n`
+              : "(provider does not support listing)\n");
+            io.write(`Switch with /model <provider> <name>. Providers: ${ids.join(", ")}.\n\n`);
+          } else if (ids.includes(parts[1]) && parts.length <= 3) {
             const selected = await models.select(parts[1], parts[2]);
             io.write(`Model: ${selected} (new conversation)\n\n`);
           } else {
-            io.write("Usage: /model [ollama|openai] [name]\n\n");
+            io.write("Usage: /model [<provider>] [name]\n\n");
           }
         } catch (error) {
           io.write(`Model error: ${error instanceof Error ? error.message : String(error)}\n\n`);
