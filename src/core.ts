@@ -130,7 +130,7 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
         const answer = await runTurn(model, turnTools, input, {
           onEvent: (event) => {
             if (event.type === "action") io.write(`  → ${event.tool}\n`);
-            else io.write(`  ← ${event.tool}: ${event.ok ? "ok" : "error"}\n`);
+            else if (event.type === "observation") io.write(`  ← ${event.tool}: ${event.ok ? "ok" : "error"}\n`);
           },
         });
         io.write(`athena> ${answer}\n\n`);

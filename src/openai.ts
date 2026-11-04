@@ -21,14 +21,20 @@ export class OpenAIClient {
   private readonly model: string;
   private readonly workspace?: Workspace;
   private readonly baseUrl: string;
+  private readonly notice?: string;
 
-  constructor(apiKey: string, model: string, workspace?: Workspace, baseUrl = "https://api.openai.com/v1") {
+  constructor(apiKey: string, model: string, workspace?: Workspace, baseUrl = "https://api.openai.com/v1", notice?: string) {
     this.apiKey = apiKey;
     this.model = model;
     this.workspace = workspace;
+    this.notice = notice;
     const url = new URL(baseUrl);
     if (url.protocol !== "https:") throw new Error("API base URL must use HTTPS");
     this.baseUrl = url.href.replace(/\/$/, "");
+  }
+
+  resume(responseId: string): void {
+    this.previousResponseId = responseId;
   }
 
   async generate(input: string | ToolResult[], tools: ToolSet): Promise<ModelStep> {
@@ -43,6 +49,7 @@ export class OpenAIClient {
         instructions: [
           "Use tools when the user's request requires an external action or information. After each tool result, decide whether another tool call is needed, then provide a final answer. Do not claim an action succeeded unless its tool result confirms it.",
           ...(this.workspace ? [`Current workspace: ${this.workspace.root}. This path is context only; use available tools for any file operation.`] : []),
+          ...(this.notice ? [this.notice] : []),
         ].join("\n"),
         input: typeof input === "string" ? input : input.map((result) => ({
           type: "function_call_output",
@@ -86,6 +93,17 @@ export function createResponsesProvider(config: {
     createClient: (model, workspace) => {
       if (!config.apiKey) throw new Error(`Set ${config.keyEnv} before selecting the ${config.id} provider`);
       return new OpenAIClient(config.apiKey, model, workspace, config.baseUrl);
+    },
+    restore: (model, events, notice, workspace) => {
+      if (!config.apiKey) throw new Error(`Set ${config.keyEnv} before selecting the ${config.id} provider`);
+      let responseId: string | undefined;
+      for (const event of events) {
+        if (event.type === "assistant_step" && event.responseId) responseId = event.responseId;
+      }
+      if (!responseId) throw new Error("Journal has no response id to resume");
+      const client = new OpenAIClient(config.apiKey, model, workspace, config.baseUrl, notice);
+      client.resume(responseId);
+      return client;
     },
   };
 }
