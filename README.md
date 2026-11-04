@@ -16,7 +16,7 @@ Set `OPENAI_MODEL` to choose a model. Type `/exit` to quit.
 
 For a compatible Responses API such as DeepSeek, set `ATHENA_API_BASE_URL=https://api.deepseek.com` and `OPENAI_MODEL=deepseek-flash` along with that provider's API key.
 
-For local Ollama, run `ollama pull qwen3:1.7b` and then `npm start`. Ollama is the default provider and needs no API key. In the TUI, `/model` lists installed local models, `/model ollama <name>` switches local models, and `/model openai <name>` switches to an OpenAI or compatible Responses API model. OpenAI selection requires `OPENAI_API_KEY` in the environment. Switching models starts a new conversation. Set `OLLAMA_HOST` to change the local endpoint; only loopback HTTP addresses are accepted.
+For local Ollama, run `ollama pull qwen3:1.7b` and then `npm start`. Ollama is the default provider because it is the one provider that works without an API key. Providers live in a registry (currently `ollama` and `openai`); `ATHENA_PROVIDER` picks one at startup. In the TUI, `/model` shows the current model and lists the models the current provider can enumerate (Ollama lists installed local models; OpenAI does not support listing). `/model <provider> <name>` switches providers or models — for example `/model ollama <name>` or `/model openai <name>`. OpenAI selection requires `OPENAI_API_KEY` in the environment. Switching models starts a new conversation. Set `OLLAMA_HOST` to change the local endpoint; only loopback HTTP addresses are accepted.
 
 ## Workspace
 
