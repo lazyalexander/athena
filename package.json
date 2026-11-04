@@ -2,6 +2,7 @@
   "name": "athena",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "start": "node --experimental-strip-types src/tui.ts",
