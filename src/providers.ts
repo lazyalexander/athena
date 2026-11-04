@@ -1,4 +1,5 @@
 import type { TextModel } from "./core.ts";
+import type { JournalEvent } from "./journal.ts";
 import type { Workspace } from "./workspace.ts";
 
 export interface Provider {
@@ -7,6 +8,7 @@ export interface Provider {
   createClient(model: string, workspace?: Workspace): TextModel;
   listModels?(): Promise<string[]>;
   validateModel?(name: string): Promise<void>;
+  restore?(model: string, events: JournalEvent[], notice: string, workspace?: Workspace): TextModel;
 }
 
 export class ProviderRegistry {

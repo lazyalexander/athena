@@ -1,10 +1,17 @@
 import type { ToolSet } from "./tools.ts";
 import type { Workspace } from "./workspace.ts";
+import { Journal } from "./journal.ts";
 import { TurnToolSet } from "./permissions.ts";
+import { existsSync } from "node:fs";
+
+export const TURN_ABORTED_NOTICE =
+  '<turn_aborted reason="process_exit">The previous turn was interrupted before completion. ' +
+  "Do not automatically continue or repeat its actions, especially side-effecting ones. " +
+  "Summarize what completed and ask the user how to proceed.</turn_aborted>";
 
 export type ToolRequest = { name: string; callId: string; arguments: string };
 export type ToolResult = { callId: string; output: string };
-export type ModelStep = { text: string; calls: ToolRequest[] };
+export type ModelStep = { text: string; calls: ToolRequest[]; responseId?: string };
 
 export interface TextModel {
   generate(input: string | ToolResult[], tools: ToolSet): Promise<ModelStep>;
@@ -19,11 +26,13 @@ export interface ModelControl {
   listModels(): Promise<string[]>;
   select(provider: string, name?: string): Promise<string>;
   providerIds(): string[];
+  reset?(): void;
 }
 
 export type ReActEvent =
+  | { type: "step"; step: number; text: string; calls: ToolRequest[]; responseId?: string }
   | { type: "action"; step: number; tool: string; callId: string }
-  | { type: "observation"; step: number; tool: string; callId: string; ok: boolean };
+  | { type: "observation"; step: number; tool: string; callId: string; ok: boolean; output: string };
 
 export type ReActOptions = {
   maxSteps?: number;
@@ -37,6 +46,7 @@ export async function runTurn(model: TextModel, tools: ToolSet, input: string, o
   let next: string | ToolResult[] = input;
   for (let step = 1; step <= maxSteps; step++) {
     const result = await model.generate(next, tools);
+    options.onEvent?.({ type: "step", step, text: result.text, calls: result.calls, responseId: result.responseId });
     if (result.calls.length === 0) return result.text || "(No text response)";
     const seen = new Set<string>();
     const observations: ToolResult[] = [];
@@ -53,7 +63,7 @@ export async function runTurn(model: TextModel, tools: ToolSet, input: string, o
         output = `Tool error: ${error instanceof Error ? error.message : String(error)}`;
       }
       observations.push({ callId: call.callId, output });
-      options.onEvent?.({ type: "observation", step, tool: call.name, callId: call.callId, ok });
+      options.onEvent?.({ type: "observation", step, tool: call.name, callId: call.callId, ok, output });
     }
     next = observations;
   }
@@ -61,9 +71,24 @@ export async function runTurn(model: TextModel, tools: ToolSet, input: string, o
 }
 
 /** Runs one conversation until input ends or the user exits. */
-export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, workspace?: Workspace, models?: ModelControl): Promise<void> {
+export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, workspace?: Workspace, models?: ModelControl, journal?: Journal): Promise<void> {
   io.write("Athena\nType /exit to quit. Use /workspace or /model for settings.\n\n");
   io.write("you> ");
+
+  let activeJournal = journal;
+  let turnCount = 0;
+  const startConversation = () => {
+    if (!activeJournal) return;
+    const [provider, name] = (models?.current ?? "unknown: unknown").split(": ");
+    activeJournal.record({ type: "conversation_start", provider, model: name, ts: Date.now() });
+  };
+  const rotateJournal = () => {
+    if (!activeJournal || !workspace) return;
+    if (existsSync(activeJournal.path)) activeJournal.archive();
+    activeJournal = Journal.open(workspace.root, (message) => io.write(`Journal warning: ${message}\n`));
+    startConversation();
+  };
+  startConversation();
 
   const lines = io[Symbol.asyncIterator]();
   while (true) {
@@ -71,6 +96,18 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
     if (line.done) break;
     const input = line.value.trim();
     if (input === "/exit" || input === "/quit") break;
+
+    if (input === "/new") {
+      if (!models?.reset) {
+        io.write("Starting a new conversation is unavailable.\n\n");
+      } else {
+        rotateJournal();
+        models.reset();
+        io.write("Started a new conversation.\n\n");
+      }
+      io.write("you> ");
+      continue;
+    }
 
     if (input === "/model" || input.startsWith("/model ")) {
       if (!models) {
@@ -88,6 +125,7 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
             io.write(`Switch with /model <provider> <name>. Providers: ${ids.join(", ")}.\n\n`);
           } else if (ids.includes(parts[1]) && parts.length <= 3) {
             const selected = await models.select(parts[1], parts[2]);
+            rotateJournal();
             io.write(`Model: ${selected} (new conversation)\n\n`);
           } else {
             const unknown = parts.length > 1 && !ids.includes(parts[1])
@@ -108,7 +146,10 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
       } else {
         const path = input.slice("/workspace".length).trim();
         try {
-          if (path) await workspace.switchTo(path);
+          if (path) {
+            await workspace.switchTo(path);
+            rotateJournal();
+          }
           io.write(`Workspace: ${workspace.root}\n\n`);
         } catch (error) {
           io.write(`Workspace error: ${error instanceof Error ? error.message : String(error)}\n\n`);
@@ -119,6 +160,9 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
     }
 
     if (input) {
+      const turnId = `turn-${++turnCount}`;
+      activeJournal?.record({ type: "turn_start", turnId, ts: Date.now() });
+      activeJournal?.record({ type: "user", turnId, text: input });
       const turnTools = new TurnToolSet(tools, async (request) => {
         io.write(`Allow ${request.tool} ${request.arguments} for this turn? [y/N] `);
         const decision = await lines.next();
@@ -128,9 +172,15 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
         const answer = await runTurn(model, turnTools, input, {
           onEvent: (event) => {
             if (event.type === "action") io.write(`  → ${event.tool}\n`);
-            else io.write(`  ← ${event.tool}: ${event.ok ? "ok" : "error"}\n`);
+            else if (event.type === "observation") io.write(`  ← ${event.tool}: ${event.ok ? "ok" : "error"}\n`);
+            if (event.type === "step") {
+              activeJournal?.record({ type: "assistant_step", turnId, text: event.text, calls: event.calls, responseId: event.responseId });
+            } else if (event.type === "observation") {
+              activeJournal?.record({ type: "tool_result", turnId, callId: event.callId, ok: event.ok, output: event.output });
+            }
           },
         });
+        activeJournal?.record({ type: "turn_end", turnId, answer, ts: Date.now() });
         io.write(`athena> ${answer}\n\n`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

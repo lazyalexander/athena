@@ -1,6 +1,8 @@
 import { createInterface } from "node:readline";
 import { stdin, stdout } from "node:process";
 import { runCore } from "./core.ts";
+import { Journal } from "./journal.ts";
+import { recoverPreviousSession } from "./recovery.ts";
 import { McpTools, type McpServerConfig } from "./mcp.ts";
 import { readFile } from "node:fs/promises";
 import { ToolRegistry } from "./tools.ts";
@@ -37,13 +39,16 @@ if (process.env.ATHENA_MCP_CONFIG) {
   await tools.connect(config.mcpServers, registry, workspace.root);
 }
 const model = new ModelManager(providers, { provider: process.env.ATHENA_PROVIDER ?? DEFAULT_PROVIDER }, workspace);
+
+await recoverPreviousSession(workspace.root, model, (text) => stdout.write(text));
+const journal = Journal.open(workspace.root, (message) => stdout.write(`Journal warning: ${message}\n`));
 const terminal = createInterface({ input: stdin, crlfDelay: Infinity });
 
 try {
   await runCore(model, registry, {
     [Symbol.asyncIterator]: () => terminal[Symbol.asyncIterator](),
     write: (text) => stdout.write(text),
-  }, workspace, model);
+  }, workspace, model, journal);
 } finally {
   terminal.close();
   await tools.close();
