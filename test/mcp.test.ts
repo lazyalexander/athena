@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { resolve } from "node:path";
-import { runTurn } from "../src/core.ts";
-import { McpTools } from "../src/mcp.ts";
-import { ToolRegistry } from "../src/tools.ts";
+import { runTurn } from "../src/agent/core.ts";
+import { McpTools } from "../src/mcp/mcp.ts";
+import { ToolRegistry } from "../src/agent/tools.ts";
 
 test("translation MCP tool is discovered and called by the core loop", async () => {
   const mcp = new McpTools();

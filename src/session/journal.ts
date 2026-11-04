@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
-import type { ToolRequest } from "./core.ts";
+import type { ToolRequest } from "../agent/core.ts";
 
 export type JournalEvent =
   | { type: "conversation_start"; provider: string; model: string; ts: number }
@@ -28,6 +28,11 @@ export class Journal {
       // record() reports the failure through onError.
     }
     return new Journal(join(dir, "journal.jsonl"), onError);
+  }
+
+  static openPath(path: string, onError?: (message: string) => void): Journal {
+    mkdirSync(join(path, ".."), { recursive: true });
+    return new Journal(path, onError);
   }
 
   record(event: JournalEvent): void {

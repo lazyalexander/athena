@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { resolveSandboxExec, seatbeltProfile, wrapSandboxed } from "../src/sandbox.ts";
+import { resolveSandboxExec, seatbeltProfile, wrapSandboxed } from "../src/workspace/sandbox.ts";
 
 test("profile confines writes to workspace and temp, denies network", () => {
   const profile = seatbeltProfile("/Users/alice/project", "/var/folders/xyz/T");

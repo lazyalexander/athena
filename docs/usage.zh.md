@@ -16,11 +16,13 @@ Ollama 是默认 provider，因为它是唯一无需 API key 即可工作的 pro
 
 Athena 以当前目录作为工作区启动。用 `ATHENA_WORKSPACE` 指定其他起始目录。在 TUI 中，`/workspace` 显示当前根目录，`/workspace <目录>` 切换；相对路径基于当前根目录解析。`Workspace.resolveExisting` 会解析符号链接并拒绝根目录之外的路径。`Workspace.resolvePath` 只做词法检查，不得在打开文件前用作授权依据。
 
-当前根目录会作为上下文随每次请求发送给模型。MCP 服务器在初始工作区目录中启动。工作区路径不是沙箱：切换工作区时已有的 MCP 服务器进程不会重启，仍可访问操作系统允许的路径。当前的轮次级批准门和后续设计见 `permissions.md`（[中文](permissions.zh.md)）。
+工作区是其多个会话共享文件的边界。当前根目录会作为上下文随每次请求发送给模型。TUI 切换工作区时会在新目录重启 MCP 连接、替换工具，并打开该工作区的活动会话。在 macOS 上，启用沙箱的 MCP 服务器只能读取新工作区内的用户文件；配置 `sandbox: false` 或系统缺少 `sandbox-exec` 时没有这层进程隔离。轮次级批准门见 `permissions.md`（[中文](permissions.zh.md)）。
 
 ## 会话恢复
 
-Athena 会把会话事件（轮次、模型步骤、工具结果）追加写入工作区的 `.athena/journal.jsonl`。如果进程在一轮对话中途崩溃，下次启动会归档旧日志、把对话恢复到模型中，并注入 `<turn_aborted>` 标记，告知模型上一轮被中断、不要重复执行——push、写文件等副作用不会被重放。恢复需要与崩溃前相同的 provider 配置（API key、可达的 Ollama 地址）；恢复失败时 Athena 会打印原因并全新开始。`/new` 丢弃当前会话、开始新对话；切换模型或工作区效果相同。建议把 `.athena/` 加入项目的 `.gitignore`，避免会话日志进入版本控制。
+每个工作区可在 `.athena/sessions/<id>/` 下保存多个会话。每个会话目录包含 `session.json`（模型选择）和 `journal.jsonl`（对话事件）；`.athena/sessions/active` 指向该工作区默认打开的会话。`/sessions` 列出会话；`/session new`（或 `/new`）创建会话；`/session use <id>` 恢复会话。`/model <provider> <name>` 用所选模型创建新会话。`/workspace <目录>` 打开该工作区的活动会话，切回来仍可继续。正常退出和重启后会话也会保留。旧 `.athena/journal.jsonl` 及平铺会话文件会自动导入。
+
+若进程在一轮中途退出，恢复该会话时会注入 `<turn_aborted>` 标记，提醒模型不要重复操作；工具副作用不会重放。恢复需要原 provider 的可用配置（API key 或可连接的 Ollama 服务）；失败时会报告错误并创建新会话。建议把 `.athena/` 加入项目的 `.gitignore`。
 
 ## 内置文件工具
 

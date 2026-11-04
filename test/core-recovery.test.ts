@@ -3,10 +3,10 @@ import { mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { runCore, type ModelControl, type TextIO } from "../src/core.ts";
-import { Journal } from "../src/journal.ts";
-import { ToolRegistry } from "../src/tools.ts";
-import { Workspace } from "../src/workspace.ts";
+import { runCore, type ModelControl, type TextIO } from "../src/agent/core.ts";
+import { Journal } from "../src/session/journal.ts";
+import { ToolRegistry } from "../src/agent/tools.ts";
+import { Workspace } from "../src/workspace/workspace.ts";
 
 function memoryIO(lines: string[]): { io: TextIO; output: () => string } {
   let text = "";

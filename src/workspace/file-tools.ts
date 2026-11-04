@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { open, readFile, rename, stat, unlink } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
 import { constants } from "node:fs";
-import type { ToolRegistry } from "./tools.ts";
+import type { ToolRegistry } from "../agent/tools.ts";
 import type { Workspace } from "./workspace.ts";
 
 const MAX_BYTES = 1024 * 1024;

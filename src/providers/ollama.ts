@@ -1,8 +1,8 @@
-import type { ModelStep, ToolResult } from "./core.ts";
-import { currentConversation, type JournalEvent } from "./journal.ts";
+import type { ModelStep, ToolResult } from "../agent/core.ts";
+import { currentConversation, type JournalEvent } from "../session/journal.ts";
 import type { Provider } from "./providers.ts";
-import type { ToolSet } from "./tools.ts";
-import type { Workspace } from "./workspace.ts";
+import type { ToolSet } from "../agent/tools.ts";
+import type { Workspace } from "../workspace/workspace.ts";
 
 type OllamaTags = { models?: Array<{ name?: string }> };
 
@@ -76,11 +76,12 @@ export class OllamaClient {
   private readonly notice?: string;
 
   constructor(model: string, workspace?: Workspace, baseUrl = "http://127.0.0.1:11434",
-    init?: { messages?: ChatMessage[]; pending?: Map<string, string>; notice?: string }) {
+    init?: { messages?: ChatMessage[]; pending?: Map<string, string>; notice?: string; requestNumber?: number }) {
     this.model = model;
     this.workspace = workspace;
     this.baseUrl = baseUrl;
     this.notice = init?.notice;
+    this.requestNumber = init?.requestNumber ?? 0;
     if (init?.messages) this.messages.push(...init.messages);
     if (init?.pending) for (const [id, name] of init.pending) this.pending.set(id, name);
     const url = new URL(baseUrl);
@@ -168,7 +169,12 @@ export function createOllamaProvider(config: { host?: string; model?: string } =
     },
     restore: (model, events, notice, workspace) => {
       const { messages, pending } = ollamaHistoryFromEvents(events);
-      return new OllamaClient(model, workspace, host, { messages, pending, notice });
+      const requestNumber = currentConversation(events).flatMap((event) => event.type === "assistant_step" ? event.calls : [])
+        .reduce((next, call) => {
+          const match = /^ollama-(\d+)-\d+$/.exec(call.callId);
+          return match ? Math.max(next, Number(match[1]) + 1) : next;
+        }, 0);
+      return new OllamaClient(model, workspace, host, { messages, pending, notice, requestNumber });
     },
   };
 }

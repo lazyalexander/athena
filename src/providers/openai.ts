@@ -1,8 +1,8 @@
-import type { ModelStep, ToolResult } from "./core.ts";
-import { currentConversation, lastSafeResponseId } from "./journal.ts";
+import type { ModelStep, ToolResult } from "../agent/core.ts";
+import { currentConversation, lastSafeResponseId } from "../session/journal.ts";
 import type { Provider } from "./providers.ts";
-import type { ToolSet } from "./tools.ts";
-import type { Workspace } from "./workspace.ts";
+import type { ToolSet } from "../agent/tools.ts";
+import type { Workspace } from "../workspace/workspace.ts";
 
 type ResponseBody = {
   id?: string;

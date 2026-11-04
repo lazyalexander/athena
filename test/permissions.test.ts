@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { runCore, type ModelStep, type ToolResult } from "../src/core.ts";
-import { TurnToolSet } from "../src/permissions.ts";
-import { ToolRegistry } from "../src/tools.ts";
+import { runCore, type ModelStep, type ToolResult } from "../src/agent/core.ts";
+import { TurnToolSet } from "../src/agent/permissions.ts";
+import { ToolRegistry } from "../src/agent/tools.ts";
 
 test("approval covers an exact call only within one user turn", async () => {
   const tools = new ToolRegistry();

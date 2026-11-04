@@ -1,6 +1,6 @@
-import type { TextModel } from "./core.ts";
-import type { JournalEvent } from "./journal.ts";
-import type { Workspace } from "./workspace.ts";
+import type { TextModel } from "../agent/core.ts";
+import type { JournalEvent } from "../session/journal.ts";
+import type { Workspace } from "../workspace/workspace.ts";
 
 export interface Provider {
   readonly id: string;

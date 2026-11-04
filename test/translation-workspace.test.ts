@@ -3,11 +3,11 @@ import { test } from "node:test";
 import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { runTurn, type ModelStep, type ToolResult } from "../src/core.ts";
-import { registerFileTools } from "../src/file-tools.ts";
-import { McpTools } from "../src/mcp.ts";
-import { ToolRegistry } from "../src/tools.ts";
-import { Workspace } from "../src/workspace.ts";
+import { runTurn, type ModelStep, type ToolResult } from "../src/agent/core.ts";
+import { registerFileTools } from "../src/workspace/file-tools.ts";
+import { McpTools } from "../src/mcp/mcp.ts";
+import { ToolRegistry } from "../src/agent/tools.ts";
+import { Workspace } from "../src/workspace/workspace.ts";
 
 test("translated MCP result is written into the selected workspace", async () => {
   const base = await mkdtemp(join(tmpdir(), "athena-translation-"));
@@ -21,6 +21,7 @@ test("translated MCP result is written into the selected workspace", async () =>
     await mcp.connect({ translation: {
       command: process.execPath,
       args: ["--experimental-strip-types", resolve("test/translation-server.ts")],
+      sandbox: false,
     } }, tools, workspace.root);
 
     let step = 0;

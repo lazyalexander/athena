@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { JournalEvent } from "../src/journal.ts";
-import { ModelManager } from "../src/model-manager.ts";
-import { createOllamaProvider, ollamaHistoryFromEvents } from "../src/ollama.ts";
-import { createOpenAIProvider } from "../src/openai.ts";
-import { ProviderRegistry } from "../src/providers.ts";
-import { ToolRegistry } from "../src/tools.ts";
+import type { JournalEvent } from "../src/session/journal.ts";
+import { ModelManager } from "../src/providers/model-manager.ts";
+import { createOllamaProvider, ollamaHistoryFromEvents } from "../src/providers/ollama.ts";
+import { createOpenAIProvider } from "../src/providers/openai.ts";
+import { ProviderRegistry } from "../src/providers/providers.ts";
+import { ToolRegistry } from "../src/agent/tools.ts";
 
 const NOTICE = '<turn_aborted reason="process_exit">interrupted</turn_aborted>';
 
@@ -50,6 +50,22 @@ test("ollama provider restore replays history and appends the notice to the syst
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("ollama restored session allocates new tool call IDs", async () => {
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response(JSON.stringify({ message: { content: "", tool_calls: [
+      { function: { name: "read_file", arguments: { path: "next.txt" } } },
+    ] } }), { status: 200 });
+    const events: JournalEvent[] = [
+      { type: "conversation_start", provider: "ollama", model: "m", ts: 1 },
+      { type: "assistant_step", turnId: "t1", text: "", calls: [{ name: "read_file", callId: "ollama-4-0", arguments: '{"path":"old.txt"}' }] },
+      { type: "tool_result", turnId: "t1", callId: "ollama-4-0", ok: true, output: "old" },
+    ];
+    const step = await createOllamaProvider().restore!("m", events, "").generate("next", new ToolRegistry());
+    assert.equal(step.calls[0]?.callId, "ollama-5-0");
+  } finally { globalThis.fetch = original; }
 });
 
 test("openai provider restore resumes the response chain and appends the notice", async () => {

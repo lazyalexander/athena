@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { runCore, type ModelControl, type TextIO } from "../src/core.ts";
-import { ToolRegistry } from "../src/tools.ts";
+import { runCore, type ModelControl, type TextIO } from "../src/agent/core.ts";
+import { ToolRegistry } from "../src/agent/tools.ts";
 
 function memoryIO(lines: string[]): { io: TextIO; output: () => string } {
   let text = "";

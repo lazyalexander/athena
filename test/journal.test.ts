@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, existsSync, readFileSync, readdirSync } fro
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { Journal, conversationStart, findUnfinishedTurn, type JournalEvent } from "../src/journal.ts";
+import { Journal, conversationStart, findUnfinishedTurn, type JournalEvent } from "../src/session/journal.ts";
 
 function dir(): string {
   return mkdtempSync(join(tmpdir(), "athena-journal-"));

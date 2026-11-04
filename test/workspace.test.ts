@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Workspace } from "../src/workspace.ts";
+import { Workspace } from "../src/workspace/workspace.ts";
 
 test("workspace resolves paths inside its root and rejects escapes", async () => {
   const base = await mkdtemp(join(tmpdir(), "athena-workspace-"));

@@ -1,8 +1,8 @@
-import type { ModelStep, TextModel, ToolResult } from "./core.ts";
-import { conversationStart, type JournalEvent } from "./journal.ts";
+import type { ModelStep, TextModel, ToolResult } from "../agent/core.ts";
+import { conversationStart, type JournalEvent } from "../session/journal.ts";
 import type { ProviderRegistry } from "./providers.ts";
-import type { ToolSet } from "./tools.ts";
-import type { Workspace } from "./workspace.ts";
+import type { ToolSet } from "../agent/tools.ts";
+import type { Workspace } from "../workspace/workspace.ts";
 
 export type ModelSettings = {
   provider?: string;
@@ -54,7 +54,7 @@ export class ModelManager implements TextModel {
     if (!provider.restore) throw new Error(`Provider ${provider.id} cannot restore sessions`);
     await this.select(provider.id, start.model);
     this.active = provider.restore(start.model, events, notice, this.workspace);
-    this.aborted = true;
+    this.aborted = !!notice;
   }
 
   reset(): void {

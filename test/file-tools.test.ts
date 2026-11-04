@@ -3,9 +3,9 @@ import { test } from "node:test";
 import { mkdtemp, mkdir, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { registerFileTools } from "../src/file-tools.ts";
-import { ToolRegistry } from "../src/tools.ts";
-import { Workspace } from "../src/workspace.ts";
+import { registerFileTools } from "../src/workspace/file-tools.ts";
+import { ToolRegistry } from "../src/agent/tools.ts";
+import { Workspace } from "../src/workspace/workspace.ts";
 
 test("file tools create, read, edit, and reject stale replacement and escapes", async () => {
   const base = await mkdtemp(join(tmpdir(), "athena-files-"));

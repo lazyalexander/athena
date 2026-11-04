@@ -18,3 +18,12 @@ npm start
 
 - [使用说明：provider、工作区、文件工具、MCP、沙箱](docs/usage.zh.md)
 - [权限系统](docs/permissions.zh.md)
+
+## 源码目录
+
+- `src/agent/`：ReAct 循环、工具注册和逐轮批准。
+- `src/session/`：会话身份、日志与恢复。
+- `src/workspace/`：工作区路径、文件工具和进程沙箱。
+- `src/providers/`：模型 provider 与切换。
+- `src/mcp/`：MCP 客户端接入。
+- `src/tui.ts`：终端入口与组件组装。

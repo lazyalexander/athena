@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { TURN_ABORTED_NOTICE } from "./core.ts";
+import { TURN_ABORTED_NOTICE } from "../agent/core.ts";
 import { Journal, findUnfinishedTurn, type JournalEvent } from "./journal.ts";
 
 export interface Restorable {

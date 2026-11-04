@@ -1,8 +1,9 @@
 import type { ToolSet } from "./tools.ts";
-import type { Workspace } from "./workspace.ts";
-import { Journal } from "./journal.ts";
+import type { Workspace } from "../workspace/workspace.ts";
+import { Journal, findUnfinishedTurn, type JournalEvent } from "../session/journal.ts";
 import { TurnToolSet } from "./permissions.ts";
 import { existsSync } from "node:fs";
+import { Sessions } from "../session/sessions.ts";
 
 export const TURN_ABORTED_NOTICE =
   '<turn_aborted reason="process_exit">The previous turn was interrupted before completion. ' +
@@ -27,7 +28,13 @@ export interface ModelControl {
   select(provider: string, name?: string): Promise<string>;
   providerIds(): string[];
   reset?(): void;
+  restore?(events: JournalEvent[], notice: string): Promise<void>;
 }
+
+export type CoreContext = {
+  sessions: Sessions;
+  switchWorkspace?: (path: string) => Promise<void>;
+};
 
 export type ReActEvent =
   | { type: "step"; step: number; text: string; calls: ToolRequest[]; responseId?: string }
@@ -71,24 +78,44 @@ export async function runTurn(model: TextModel, tools: ToolSet, input: string, o
 }
 
 /** Runs one conversation until input ends or the user exits. */
-export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, workspace?: Workspace, models?: ModelControl, journal?: Journal): Promise<void> {
+export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, workspace?: Workspace, models?: ModelControl, journal?: Journal, context?: CoreContext): Promise<void> {
   io.write("Athena\nType /exit to quit. Use /workspace or /model for settings.\n\n");
   io.write("you> ");
 
   let activeJournal = journal;
+  let sessions = context?.sessions;
   let turnCount = 0;
   const startConversation = () => {
     if (!activeJournal) return;
+    if (sessions && existsSync(activeJournal.path) && Journal.load(activeJournal.path).events.length) return;
     const [provider, name] = (models?.current ?? "unknown: unknown").split(": ");
     activeJournal.record({ type: "conversation_start", provider, model: name, ts: Date.now() });
   };
   const rotateJournal = () => {
+    if (sessions && models && workspace) {
+      const [provider, name] = models.current.split(": ");
+      sessions.create(provider, name);
+      activeJournal = sessions.journal;
+      startConversation();
+      return;
+    }
     if (!activeJournal || !workspace) return;
     if (existsSync(activeJournal.path)) activeJournal.archive();
     activeJournal = Journal.open(workspace.root, (message) => io.write(`Journal warning: ${message}\n`));
     startConversation();
   };
   startConversation();
+
+  const restoreSession = async (id: string): Promise<void> => {
+    if (!sessions || !models?.restore) throw new Error("Session switching is unavailable");
+    const info = sessions.get(id);
+    const events = Journal.load(sessions.journalPath(id)).events;
+    if (events.length) await models.restore(events, findUnfinishedTurn(events) ? TURN_ABORTED_NOTICE : "");
+    else await models.select(info.provider, info.model);
+    sessions.activate(id);
+    activeJournal = sessions.journal;
+    startConversation();
+  };
 
   const lines = io[Symbol.asyncIterator]();
   while (true) {
@@ -106,6 +133,25 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
         io.write("Started a new conversation.\n\n");
       }
       io.write("you> ");
+      continue;
+    }
+
+    if (input === "/sessions" || input === "/session" || input.startsWith("/session ")) {
+      try {
+        if (!sessions) throw new Error("Sessions are unavailable");
+        const parts = input.split(/\s+/);
+        if (input === "/sessions" || parts.length === 1) {
+          for (const info of sessions.list()) io.write(`${info.id === sessions.active.id ? "*" : " "} ${info.id} ${info.provider}: ${info.model}\n`);
+        } else if (parts[1] === "new" && parts.length === 2) {
+          models?.reset?.();
+          rotateJournal();
+          io.write(`Session: ${sessions.active.id}\n`);
+        } else if (parts[1] === "use" && parts.length === 3) {
+          await restoreSession(parts[2]);
+          io.write(`Session: ${sessions.active.id}\n`);
+        } else io.write("Usage: /sessions | /session new | /session use <id>\n");
+      } catch (error) { io.write(`Session error: ${error instanceof Error ? error.message : String(error)}\n`); }
+      io.write("\nyou> ");
       continue;
     }
 
@@ -147,8 +193,25 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
         const path = input.slice("/workspace".length).trim();
         try {
           if (path) {
-            await workspace.switchTo(path);
-            rotateJournal();
+            if (context?.switchWorkspace) {
+              await context.switchWorkspace(path);
+              const [provider, name] = (models?.current ?? "unknown: unknown").split(": ");
+              sessions = Sessions.open(workspace.root, provider, name);
+              try {
+                if (models?.restore) await restoreSession(sessions.active.id);
+                else { models?.reset?.(); activeJournal = sessions.journal; startConversation(); }
+              } catch (error) {
+                io.write(`Could not resume workspace session: ${error instanceof Error ? error.message : String(error)}. Started a new session.\n`);
+                models?.reset?.();
+                sessions.create(provider, name);
+                activeJournal = sessions.journal;
+                startConversation();
+              }
+            } else {
+              await workspace.switchTo(path);
+              models?.reset?.();
+              rotateJournal();
+            }
           }
           io.write(`Workspace: ${workspace.root}\n\n`);
         } catch (error) {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ProviderRegistry, type Provider } from "../src/providers.ts";
-import { createOllamaProvider } from "../src/ollama.ts";
+import { ProviderRegistry, type Provider } from "../src/providers/providers.ts";
+import { createOllamaProvider } from "../src/providers/ollama.ts";
 
 function fakeProvider(id: string): Provider {
   return {
@@ -37,8 +37,8 @@ test("ollama provider lists and validates installed local models", async () => {
 });
 
 test("openai provider requires an API key and does not list models", async () => {
-  const { createOpenAIProvider } = await import("../src/openai.ts");
-  const { OpenAIClient } = await import("../src/openai.ts");
+  const { createOpenAIProvider } = await import("../src/providers/openai.ts");
+  const { OpenAIClient } = await import("../src/providers/openai.ts");
   const provider = createOpenAIProvider();
   assert.equal(provider.id, "openai");
   assert.equal(provider.defaultModel, "gpt-6-astra");
@@ -50,7 +50,7 @@ test("openai provider requires an API key and does not list models", async () =>
 });
 
 test("deepseek provider uses its own key env var and base URL", async () => {
-  const { createResponsesProvider } = await import("../src/openai.ts");
+  const { createResponsesProvider } = await import("../src/providers/openai.ts");
   const provider = createResponsesProvider({
     id: "deepseek",
     keyEnv: "DEEPSEEK_API_KEY",

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ModelManager } from "../src/model-manager.ts";
-import { createOllamaProvider } from "../src/ollama.ts";
-import { createOpenAIProvider } from "../src/openai.ts";
-import { ProviderRegistry } from "../src/providers.ts";
+import { ModelManager } from "../src/providers/model-manager.ts";
+import { createOllamaProvider } from "../src/providers/ollama.ts";
+import { createOpenAIProvider } from "../src/providers/openai.ts";
+import { ProviderRegistry } from "../src/providers/providers.ts";
 
 test("model manager lists local models and switches providers without changing state on failure", async () => {
   const original = globalThis.fetch;

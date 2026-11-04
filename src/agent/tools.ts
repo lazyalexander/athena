@@ -28,6 +28,11 @@ export class ToolRegistry implements ToolSet {
     this.tools.set(name, tool);
   }
 
+  replaceFrom(other: ToolRegistry): void {
+    this.tools.clear();
+    for (const [name, tool] of other.tools) this.tools.set(name, tool);
+  }
+
   async call(name: string, args: unknown): Promise<string> {
     const tool = this.tools.get(name);
     if (!tool) throw new Error(`Unknown tool: ${name}`);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { OllamaClient } from "../src/ollama.ts";
-import { ToolRegistry } from "../src/tools.ts";
+import { OllamaClient } from "../src/providers/ollama.ts";
+import { ToolRegistry } from "../src/agent/tools.ts";
 
 test("Ollama adapter sends tool results back with the matching tool name", async () => {
   const original = globalThis.fetch;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { runTurn, type ModelStep, type ToolResult, type ReActEvent } from "../src/core.ts";
-import { ToolRegistry } from "../src/tools.ts";
+import { runTurn, type ModelStep, type ToolResult, type ReActEvent } from "../src/agent/core.ts";
+import { ToolRegistry } from "../src/agent/tools.ts";
 
 test("ReAct executes actions in order and feeds observations back to the model", async () => {
   const tools = new ToolRegistry();

@@ -18,3 +18,12 @@ For local models with Ollama, run `ollama pull qwen3:1.7b` first — no API key 
 
 - [Usage: providers, workspace, file tools, MCP, sandbox](docs/usage.md)
 - [Permission system](docs/permissions.md)
+
+## Source layout
+
+- `src/agent/`: ReAct loop, tool registry, and turn approval.
+- `src/session/`: session identity, journal, and recovery.
+- `src/workspace/`: workspace paths, file tools, and process sandbox.
+- `src/providers/`: model providers and selection.
+- `src/mcp/`: MCP client integration.
+- `src/tui.ts`: terminal entry point and wiring.

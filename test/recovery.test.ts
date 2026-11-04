@@ -3,9 +3,9 @@ import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { TURN_ABORTED_NOTICE } from "../src/core.ts";
-import type { JournalEvent } from "../src/journal.ts";
-import { recoverPreviousSession } from "../src/recovery.ts";
+import { TURN_ABORTED_NOTICE } from "../src/agent/core.ts";
+import type { JournalEvent } from "../src/session/journal.ts";
+import { recoverPreviousSession } from "../src/session/recovery.ts";
 
 function writeJournal(root: string, events: JournalEvent[]): void {
   mkdirSync(join(root, ".athena"), { recursive: true });

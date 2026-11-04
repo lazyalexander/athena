@@ -1,8 +1,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { tmpdir } from "node:os";
-import { ToolRegistry } from "./tools.ts";
-import { resolveSandboxExec, wrapSandboxed } from "./sandbox.ts";
+import { ToolRegistry } from "../agent/tools.ts";
+import { resolveSandboxExec, wrapSandboxed } from "../workspace/sandbox.ts";
 
 export type McpServerConfig = Record<string, { command: string; args?: string[]; env?: Record<string, string>; sandbox?: boolean }>;
 export class McpTools {
@@ -15,7 +15,7 @@ export class McpTools {
         if (!options.command || !Array.isArray(options.args ?? [])) throw new Error(`Invalid MCP server: ${server}`);
         const launch = options.sandbox === false || !cwd
           ? { command: options.command, args: options.args ?? [] }
-          : wrapSandboxed(options.command, options.args ?? [], cwd, tmpdir(), sandboxExec, [process.cwd()]);
+          : wrapSandboxed(options.command, options.args ?? [], cwd, tmpdir(), sandboxExec);
         const client = new Client({ name: "athena", version: "0.1.0" });
         const transport = new StdioClientTransport({
           command: launch.command,
