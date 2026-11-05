@@ -18,6 +18,7 @@ For local models with Ollama, run `ollama pull qwen3:1.7b` first — no API key 
 
 - [Usage: providers, workspace, file tools, MCP, sandbox](docs/usage.md)
 - [Permission system](docs/permissions.md)
+- [Application knowledge and action decisions](docs/knowledge-design.md)
 
 ## Source layout
 
@@ -26,4 +27,5 @@ For local models with Ollama, run `ollama pull qwen3:1.7b` first — no API key 
 - `src/workspace/`: workspace paths, file tools, and process sandbox.
 - `src/providers/`: model providers and selection.
 - `src/mcp/`: MCP client integration.
+- `src/knowledge/`: optional workspace document search.
 - `src/tui.ts`: terminal entry point and wiring.

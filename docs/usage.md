@@ -30,6 +30,12 @@ If a process dies mid-turn, resuming that session injects a `<turn_aborted>` not
 
 Athena registers `read_file`, `write_file`, and `edit_file` for UTF-8 files in the current workspace. `write_file` creates a new file by default; replacing an existing file requires the `sha256` returned by `read_file` as `expectedSha256`. `edit_file` replaces exactly one occurrence of `oldText` with `newText`. Each operation is limited to 1 MiB. Tool calls from the TUI pass through the turn-level approval gate.
 
+## Application knowledge and facts
+
+Set `ATHENA_KNOWLEDGE_DIR` to a directory inside the workspace containing application-owned Markdown documents, for example `knowledge`. Athena then registers `search_knowledge(query)`, which returns matching excerpts with their source filename and SHA-256 revision. It searches at most 32 Markdown files of up to 128 KiB each and returns up to five excerpts. The directory is resolved within the active workspace on each call, so switching workspaces also switches the knowledge source. The application owns document content and version control; Athena does not encode its rules.
+
+The model is instructed to look up relevant rules, get changing facts through tools, and check them before state-changing calls. The built-in `elapsed_time(start, end)` tool calculates exact time differences from ISO 8601 timestamps with explicit offsets; it does not decide business eligibility. This is decision guidance, not an enforcement guarantee. A tool owner can attach `beforeExecute` for authoritative pre-execution checks; see `permissions.md`. Benchmark adapters remain separate and do not use workspace knowledge or business checks by default.
+
 ## MCP tools
 
 Set `ATHENA_MCP_CONFIG` to the path of a JSON configuration file:

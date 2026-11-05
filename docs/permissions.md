@@ -4,6 +4,12 @@
 
 Status: the TUI has a turn-scoped, exact-call approval gate. The rest of this document records possible extensions. MCP servers do not enforce these host permissions.
 
+## Tool preconditions
+
+Registered tools may define `beforeExecute(args)`. `ToolRegistry.call` runs it on every invocation, after argument shape validation and immediately before `execute`, including calls already approved for the current turn. A denial or a failed check prevents execution and becomes a tool error for the agent. The tool owner must supply authoritative state and a clock when a business rule depends on them. See `examples/booking-window.ts` for an isolated 24-hour booking check; it is not a complete airline cancellation policy and is not installed in the benchmark adapter. This check is separate from the user's permission decision.
+
+The core defines only the hook and its allow/deny result. Applications or plugins attach their own checks when registering tools. No domain rule or business data lookup belongs in `src/agent/`; a model instruction is not a substitute for a pre-execution check.
+
 ## Implemented turn scope
 
 Each user message creates a fresh `TurnToolSet`. Before dispatch, it prompts for the exact tool name and JSON arguments. Only `y` or `yes` approves. The same call may repeat within that turn without another prompt. A changed argument, another tool, or the next user message requires a new decision. Denials are cached for that turn. EOF denies. Unknown tools are rejected before prompting. The gate is cleared when the turn finishes or fails. The model receives a tool error on denial and may continue without that tool.

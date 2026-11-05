@@ -30,6 +30,12 @@ Athena 以当前目录作为工作区启动。用 `ATHENA_WORKSPACE` 指定其�
 
 Athena 为当前工作区内的 UTF-8 文件注册 `read_file`、`write_file` 和 `edit_file`。`write_file` 默认创建新文件；替换已有文件需要提供 `read_file` 返回的 `sha256` 作为 `expectedSha256`。`edit_file` 精确替换一处 `oldText` 为 `newText`。每次操作上限 1 MiB。来自 TUI 的工具调用都要经过轮次级批准门。
 
+## 应用知识与事实
+
+将 `ATHENA_KNOWLEDGE_DIR` 设为工作区内由应用管理的 Markdown 目录，例如 `knowledge`。Athena 会注册 `search_knowledge(query)`，返回匹配片段、来源文件名及 SHA-256 版本标识。它最多检索 32 个文件（每个不超过 128 KiB），返回最多五个片段。每次调用都在当前工作区内解析目录；切换工作区也会切换知识来源。应用负责文档内容和版本管理，Athena 不内置业务条款。
+
+模型会收到通用指引：先查相关规则，通过工具获取会变化的事实，在修改状态前核对。内置的 `elapsed_time(start, end)` 使用带明确时区偏移的 ISO 8601 时间计算精确间隔，不判断业务资格。这属于决策引导，不保证每次判断正确。工具所属方可通过 `beforeExecute` 做权威的执行前校验，见 `permissions.zh.md`。评测适配器默认不使用工作区知识或业务校验。
+
 ## MCP 工具
 
 将 `ATHENA_MCP_CONFIG` 设为 JSON 配置文件路径：

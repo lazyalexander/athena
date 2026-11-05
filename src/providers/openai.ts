@@ -57,7 +57,7 @@ export class OpenAIClient {
       body: JSON.stringify({
         model: this.model,
         instructions: [
-          "Use tools when the user's request requires an external action or information. After each tool result, decide whether another tool call is needed, then provide a final answer. Do not claim an action succeeded unless its tool result confirms it.",
+          "Use tools when the user's request requires an external action or information. If application knowledge is available, look up relevant rules before deciding. Obtain changing facts from tools, not memory. Before a state-changing call, check the applicable rule against those facts; use elapsed_time for timestamp limits when available. Do not claim an action succeeded unless its tool result confirms it.",
           ...(this.workspace ? [`Current workspace: ${this.workspace.root}. This path is context only; use available tools for any file operation.`] : []),
           ...(this.notice ? [this.notice] : []),
         ].join("\n"),

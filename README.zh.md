@@ -18,6 +18,7 @@ npm start
 
 - [使用说明：provider、工作区、文件工具、MCP、沙箱](docs/usage.zh.md)
 - [权限系统](docs/permissions.zh.md)
+- [应用知识与动作决策](docs/knowledge-design.zh.md)
 
 ## 源码目录
 

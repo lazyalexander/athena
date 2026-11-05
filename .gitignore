@@ -3,6 +3,8 @@ node_modules/
 .env.*
 !.env.example
 *.log
+__pycache__/
+*.pyc
 
 # Local working design docs and plans, not for publishing
 docs/superpowers/

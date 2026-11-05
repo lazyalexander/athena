@@ -8,6 +8,8 @@ import { readFile } from "node:fs/promises";
 import { ToolRegistry } from "./agent/tools.ts";
 import { Workspace } from "./workspace/workspace.ts";
 import { registerFileTools } from "./workspace/file-tools.ts";
+import { registerKnowledgeTool } from "./knowledge/knowledge.ts";
+import { registerTimeTools } from "./agent/time-tools.ts";
 import { ModelManager } from "./providers/model-manager.ts";
 import { createOllamaProvider } from "./providers/ollama.ts";
 import { createOpenAIProvider, createResponsesProvider } from "./providers/openai.ts";
@@ -35,6 +37,8 @@ let tools = new McpTools();
 const registry = new ToolRegistry();
 const workspace = await Workspace.open(process.env.ATHENA_WORKSPACE ?? process.cwd());
 registerFileTools(registry, workspace);
+registerTimeTools(registry);
+if (process.env.ATHENA_KNOWLEDGE_DIR) registerKnowledgeTool(registry, workspace, process.env.ATHENA_KNOWLEDGE_DIR);
 let mcpConfig: McpServerConfig | undefined;
 if (process.env.ATHENA_MCP_CONFIG) {
   const config = JSON.parse(await readFile(process.env.ATHENA_MCP_CONFIG, "utf8")) as { mcpServers: McpServerConfig };
@@ -64,6 +68,8 @@ const switchWorkspace = async (path: string): Promise<void> => {
   const candidate = await Workspace.open((await import("node:path")).resolve(workspace.root, path));
   const nextRegistry = new ToolRegistry();
   registerFileTools(nextRegistry, workspace);
+  registerTimeTools(nextRegistry);
+  if (process.env.ATHENA_KNOWLEDGE_DIR) registerKnowledgeTool(nextRegistry, workspace, process.env.ATHENA_KNOWLEDGE_DIR);
   const nextTools = new McpTools();
   try {
     if (mcpConfig) await nextTools.connect(mcpConfig, nextRegistry, candidate.root);
