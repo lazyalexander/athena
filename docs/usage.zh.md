@@ -10,6 +10,8 @@
 
 Ollama 是默认 provider，因为它是唯一无需 API key 即可工作的 provider。provider 由注册表管理（当前为 `ollama`、`openai` 和 `deepseek`）；启动时用 `ATHENA_PROVIDER` 选择。每个 provider 读自己的 key：OpenAI 用 `OPENAI_API_KEY`，DeepSeek 用 `DEEPSEEK_API_KEY`（用 `DEEPSEEK_MODEL` 选择模型，默认 `deepseek-chat`）。在 TUI 中，`/model` 显示当前模型并列出当前 provider 支持枚举的模型（Ollama 列出本地已安装模型；OpenAI 和 DeepSeek 不支持列出）。`/model <provider> <name>` 切换 provider 或模型，例如 `/model ollama <name>` 或 `/model deepseek <name>`。切换模型会开始新对话。用 `OLLAMA_HOST` 修改本地端点；仅接受回环 HTTP 地址。
 
+DeepSeek 的 Responses API 无状态，因此 Athena 每次请求都发送完整对话与工具历史；OpenAI 则使用 response ID 续接服务端对话。
+
 对于其他兼容 Responses API 的服务，设置 `ATHENA_API_BASE_URL`，用 `OPENAI_MODEL` 选择模型，并把该服务的 key 放进 `OPENAI_API_KEY`。
 
 ## 工作区

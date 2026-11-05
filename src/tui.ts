@@ -29,6 +29,7 @@ providers.register(createResponsesProvider({
   model: process.env.DEEPSEEK_MODEL,
   baseUrl: "https://api.deepseek.com",
   defaultModel: "deepseek-chat",
+  stateless: true,
 }));
 let tools = new McpTools();
 const registry = new ToolRegistry();

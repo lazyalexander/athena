@@ -10,6 +10,8 @@ Set `OPENAI_MODEL` to choose a model.
 
 Ollama is the default provider because it is the one provider that works without an API key. Providers live in a registry (currently `ollama`, `openai`, and `deepseek`); `ATHENA_PROVIDER` picks one at startup. Each provider reads its own key: `OPENAI_API_KEY` for OpenAI, `DEEPSEEK_API_KEY` for DeepSeek (with `DEEPSEEK_MODEL` to choose its model, default `deepseek-chat`). In the TUI, `/model` shows the current model and lists the models the current provider can enumerate (Ollama lists installed local models; OpenAI and DeepSeek do not support listing). `/model <provider> <name>` switches providers or models — for example `/model ollama <name>` or `/model deepseek <name>`. Switching models starts a new conversation. Set `OLLAMA_HOST` to change the local endpoint; only loopback HTTP addresses are accepted.
 
+DeepSeek's Responses API is stateless, so Athena sends the full conversation and tool history on every request. OpenAI uses response IDs to continue its server-side conversation.
+
 For another compatible Responses API, set `ATHENA_API_BASE_URL` and pick the model with `OPENAI_MODEL` along with that provider's key in `OPENAI_API_KEY`.
 
 ## Workspace

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import type { JournalEvent } from "../src/session/journal.ts";
 import { ModelManager } from "../src/providers/model-manager.ts";
 import { createOllamaProvider, ollamaHistoryFromEvents } from "../src/providers/ollama.ts";
-import { createOpenAIProvider } from "../src/providers/openai.ts";
+import { createOpenAIProvider, createResponsesProvider } from "../src/providers/openai.ts";
 import { ProviderRegistry } from "../src/providers/providers.ts";
 import { ToolRegistry } from "../src/agent/tools.ts";
 
@@ -88,6 +88,30 @@ test("openai provider restore resumes the response chain and appends the notice"
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("stateless responses provider replays paired calls without previous_response_id", async () => {
+  const original = globalThis.fetch;
+  try {
+    let captured: { input: Array<Record<string, unknown>>; previous_response_id?: string } | undefined;
+    globalThis.fetch = async (_url, init) => {
+      captured = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ id: "next", output: [{ type: "message", content: [{ type: "output_text", text: "done" }] }] }), { status: 200 });
+    };
+    const events: JournalEvent[] = [
+      { type: "conversation_start", provider: "deepseek", model: "deepseek-chat", ts: 1 },
+      { type: "user", turnId: "t1", text: "check", },
+      { type: "assistant_step", turnId: "t1", text: "", calls: [{ name: "get_time", callId: "c1", arguments: "{}" }] },
+      { type: "tool_result", turnId: "t1", callId: "c1", ok: true, output: "12:34" },
+      { type: "assistant_step", turnId: "t1", text: "done", calls: [] },
+      { type: "assistant_step", turnId: "t2", text: "", calls: [{ name: "get_time", callId: "unanswered", arguments: "{}" }] },
+    ];
+    const provider = createResponsesProvider({ id: "deepseek", keyEnv: "DEEPSEEK_API_KEY", apiKey: "test", defaultModel: "deepseek-chat", stateless: true });
+    await provider.restore!("deepseek-chat", events, "interrupted").generate("continue", new ToolRegistry());
+    assert.equal(captured?.previous_response_id, undefined);
+    assert.deepEqual(captured?.input.map((item) => item.type ?? item.role), ["user", "function_call", "function_call_output", "assistant", "user"]);
+    assert.equal(captured?.input[2]?.call_id, "c1");
+  } finally { globalThis.fetch = original; }
 });
 
 test("openai restore without any responseId in the journal throws", () => {
