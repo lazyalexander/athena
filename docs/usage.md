@@ -6,13 +6,21 @@ The core uses a bounded ReAct loop: each model step either returns a final answe
 
 ## Providers and models
 
-Set `OPENAI_MODEL` to choose a model.
+Every LLM connection enters through `createProviderLayer` in `src/providers/entry.ts`. The TUI and the τ-bench bridge both use that layer. The built-in connections are `ollama`, `openai`, and `deepseek`. `ATHENA_PROVIDER` selects one at startup. The default is `ollama`, because it is the only built-in connection that works without an API key.
 
-Ollama is the default provider because it is the one provider that works without an API key. Providers live in a registry (currently `ollama`, `openai`, and `deepseek`); `ATHENA_PROVIDER` picks one at startup. Each provider reads its own key: `OPENAI_API_KEY` for OpenAI, `DEEPSEEK_API_KEY` for DeepSeek (with `DEEPSEEK_MODEL` to choose its model, default `deepseek-chat`). In the TUI, `/model` shows the current model and lists the models the current provider can enumerate (Ollama lists installed local models; OpenAI and DeepSeek do not support listing). `/model <provider> <name>` switches providers or models — for example `/model ollama <name>` or `/model deepseek <name>`. Switching models starts a new conversation. Set `OLLAMA_HOST` to change the local endpoint; only loopback HTTP addresses are accepted.
+Each cloud connection reads its key from the environment: `OPENAI_API_KEY` for OpenAI, `DEEPSEEK_API_KEY` for DeepSeek (`DEEPSEEK_MODEL` chooses its model, default `deepseek-chat`). `OPENAI_MODEL` chooses the OpenAI model. Keys stay in the environment. They are not written into source, provider files, or session journals. In the TUI, `/model` shows the current model and lists the models the current provider can enumerate (Ollama lists installed local models; the others do not). `/model <provider> <name>` switches provider or model, for example `/model ollama <name>` or `/model deepseek <name>`. Switching models starts a new conversation. `OLLAMA_HOST` changes the local endpoint; only loopback HTTP addresses are accepted.
 
-DeepSeek's Responses API is stateless, so Athena sends the full conversation and tool history on every request. OpenAI uses response IDs to continue its server-side conversation.
+DeepSeek's Responses API is stateless, so Athena sends the full conversation and tool history on every request. OpenAI uses response IDs to continue its server-side conversation. `ATHENA_API_BASE_URL` points the built-in OpenAI connection at another HTTPS Responses endpoint, still using `OPENAI_API_KEY`.
 
-For another compatible Responses API, set `ATHENA_API_BASE_URL` and pick the model with `OPENAI_MODEL` along with that provider's key in `OPENAI_API_KEY`.
+To connect another LLM, set `ATHENA_PROVIDERS` to a local JSON file. Start from [examples/providers.example.json](../examples/providers.example.json). Each entry names a protocol and, for a cloud model, a `keyEnv` variable:
+
+| Protocol | Wire format | History |
+|---|---|---|
+| `ollama` | local Ollama `/api/chat` | kept by the client |
+| `responses` | OpenAI Responses API | server-side when `stateless` is omitted; full transcript when `stateless` is true |
+| `chat` | OpenAI chat completions | full transcript on every request |
+
+The file must not contain key values. Athena rejects secret fields and secret-shaped values, and the error does not repeat the value. Do not commit the file. `providers.local.json` is gitignored.
 
 ## Workspace
 
@@ -24,7 +32,7 @@ The workspace is the shared file boundary for its sessions. The current root is 
 
 Each workspace can hold multiple sessions under `.athena/sessions/<id>/`. Each session folder contains `session.json` (model selection) and `journal.jsonl` (conversation events); `.athena/sessions/active` selects that workspace's default session. `/sessions` lists them, `/session new` (or `/new`) creates one, and `/session use <id>` resumes one. `/model <provider> <name>` starts a new session with that model. `/workspace <directory>` opens that workspace's active session; switching back resumes it. Sessions survive normal exits and restarts. An old `.athena/journal.jsonl` or flat session layout is imported automatically.
 
-If a process dies mid-turn, resuming that session injects a `<turn_aborted>` notice telling the model not to repeat actions. Side effects are not replayed. Restoration needs the same provider configuration (API key or reachable Ollama host); on failure Athena reports the error and starts a new session. Add `.athena/` to the project's `.gitignore` so journals stay out of version control.
+If a process dies mid-turn, resuming that session injects a `<turn_aborted>` notice telling the model not to repeat actions. Side effects are not replayed. Restoration needs the same provider configuration (API key or reachable Ollama host); on failure Athena reports the error and starts a new session. `.athena/` is gitignored. Journals can contain conversations and must stay out of version control.
 
 ## Built-in file tools
 

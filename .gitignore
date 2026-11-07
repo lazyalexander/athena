@@ -6,5 +6,11 @@ node_modules/
 __pycache__/
 *.pyc
 
+# Session journals can contain conversations. Never publish them.
+.athena/
+
+# Local LLM connection file. Put keys in the environment, never in this file.
+providers.local.json
+
 # Local working design docs and plans, not for publishing
 docs/superpowers/

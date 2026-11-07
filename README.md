@@ -25,7 +25,7 @@ For local models with Ollama, run `ollama pull qwen3:1.7b` first — no API key 
 - `src/agent/`: ReAct loop, tool registry, and turn approval.
 - `src/session/`: session identity, journal, and recovery.
 - `src/workspace/`: workspace paths, file tools, and process sandbox.
-- `src/providers/`: model providers and selection.
+- `src/providers/`: LLM provider layer. Every model connection enters through `createProviderLayer`.
 - `src/mcp/`: MCP client integration.
 - `src/knowledge/`: optional workspace document search.
 - `src/tui.ts`: terminal entry point and wiring.

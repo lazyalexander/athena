@@ -1,6 +1,8 @@
+**English** | [中文](README.zh.md)
+
 # τ-bench adapter
 
-This adapter runs Athena's model clients under the official τ-bench orchestrator. The evaluator owns domain tools, user simulation, and scoring. `bridge.ts` only forwards tool definitions and returns model tool calls; it does not execute tools or impose airline policy checks. Domain policy is passed as system instructions.
+This adapter runs Athena's model clients under the official τ-bench orchestrator. The evaluator owns domain tools, user simulation, and scoring. `bridge.ts` asks `createProviderLayer` for a client, forwards tool definitions, and returns model tool calls. It does not execute tools or impose airline policy checks. Domain policy is passed as system instructions. Keys stay in the environment.
 
 Install the official `sierra-research/tau2-bench` checkout and its Python dependencies, then run from that checkout:
 

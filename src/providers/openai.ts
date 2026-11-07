@@ -98,9 +98,9 @@ export function createResponsesProvider(config: {
   return {
     id: config.id,
     defaultModel: config.model ?? config.defaultModel,
-    createClient: (model, workspace) => {
+    createClient: (model, workspace, options) => {
       if (!config.apiKey) throw new Error(`Set ${config.keyEnv} before selecting the ${config.id} provider`);
-      return new OpenAIClient(config.apiKey, model, workspace, config.baseUrl, undefined, config.stateless);
+      return new OpenAIClient(config.apiKey, model, workspace, config.baseUrl, options?.notice, config.stateless);
     },
     restore: (model, events, notice, workspace) => {
       if (!config.apiKey) throw new Error(`Set ${config.keyEnv} before selecting the ${config.id} provider`);

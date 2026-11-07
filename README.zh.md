@@ -25,6 +25,7 @@ npm start
 - `src/agent/`：ReAct 循环、工具注册和逐轮批准。
 - `src/session/`：会话身份、日志与恢复。
 - `src/workspace/`：工作区路径、文件工具和进程沙箱。
-- `src/providers/`：模型 provider 与切换。
+- `src/providers/`：LLM provider 层。所有模型连接都从 `createProviderLayer` 进入。
 - `src/mcp/`：MCP 客户端接入。
+- `src/knowledge/`：可选的工作区文档检索。
 - `src/tui.ts`：终端入口与组件组装。

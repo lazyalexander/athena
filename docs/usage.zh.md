@@ -6,13 +6,21 @@
 
 ## Provider 与模型
 
-用 `OPENAI_MODEL` 选择模型。
+所有 LLM 连接都从 `src/providers/entry.ts` 的 `createProviderLayer` 进入。TUI 和 τ-bench 桥都使用这一层。内置连接是 `ollama`、`openai` 和 `deepseek`。启动时用 `ATHENA_PROVIDER` 选择。默认是 `ollama`，因为它是唯一无需 API key 的内置连接。
 
-Ollama 是默认 provider，因为它是唯一无需 API key 即可工作的 provider。provider 由注册表管理（当前为 `ollama`、`openai` 和 `deepseek`）；启动时用 `ATHENA_PROVIDER` 选择。每个 provider 读自己的 key：OpenAI 用 `OPENAI_API_KEY`，DeepSeek 用 `DEEPSEEK_API_KEY`（用 `DEEPSEEK_MODEL` 选择模型，默认 `deepseek-chat`）。在 TUI 中，`/model` 显示当前模型并列出当前 provider 支持枚举的模型（Ollama 列出本地已安装模型；OpenAI 和 DeepSeek 不支持列出）。`/model <provider> <name>` 切换 provider 或模型，例如 `/model ollama <name>` 或 `/model deepseek <name>`。切换模型会开始新对话。用 `OLLAMA_HOST` 修改本地端点；仅接受回环 HTTP 地址。
+每个云端连接从环境变量读取自己的 key：OpenAI 用 `OPENAI_API_KEY`，DeepSeek 用 `DEEPSEEK_API_KEY`（`DEEPSEEK_MODEL` 选择模型，默认 `deepseek-chat`）。`OPENAI_MODEL` 选择 OpenAI 模型。密钥只放在环境变量里，不写入源码、provider 文件或会话日志。在 TUI 中，`/model` 显示当前模型，并列出当前 provider 能够枚举的模型（Ollama 列出本地已安装模型；其余 provider 不支持列出）。`/model <provider> <name>` 切换 provider 或模型，例如 `/model ollama <name>` 或 `/model deepseek <name>`。切换模型会开始新对话。`OLLAMA_HOST` 修改本地端点；只接受回环 HTTP 地址。
 
-DeepSeek 的 Responses API 无状态，因此 Athena 每次请求都发送完整对话与工具历史；OpenAI 则使用 response ID 续接服务端对话。
+DeepSeek 的 Responses API 无状态，因此 Athena 每次请求都发送完整对话与工具历史。OpenAI 使用 response ID 续接服务端对话。`ATHENA_API_BASE_URL` 把内置 OpenAI 连接指到另一个 HTTPS Responses 端点，密钥仍用 `OPENAI_API_KEY`。
 
-对于其他兼容 Responses API 的服务，设置 `ATHENA_API_BASE_URL`，用 `OPENAI_MODEL` 选择模型，并把该服务的 key 放进 `OPENAI_API_KEY`。
+要接入其他 LLM，把 `ATHENA_PROVIDERS` 设为本地 JSON 文件。从 [examples/providers.example.json](../examples/providers.example.json) 开始。每条记录写明协议；云端模型再写 `keyEnv` 变量名：
+
+| 协议 | 线路格式 | 历史 |
+|---|---|---|
+| `ollama` | 本地 Ollama `/api/chat` | 由客户端保存 |
+| `responses` | OpenAI Responses API | 省略 `stateless` 时走服务端；`stateless` 为 true 时每次发送完整记录 |
+| `chat` | OpenAI chat completions | 每次请求发送完整记录 |
+
+文件里不能写密钥本身。Athena 会拒绝秘密字段和形如密钥的值，报错也不会复述该值。不要提交这个文件。`providers.local.json` 已在 `.gitignore` 中。
 
 ## 工作区
 
@@ -24,7 +32,7 @@ Athena 以当前目录作为工作区启动。用 `ATHENA_WORKSPACE` 指定其�
 
 每个工作区可在 `.athena/sessions/<id>/` 下保存多个会话。每个会话目录包含 `session.json`（模型选择）和 `journal.jsonl`（对话事件）；`.athena/sessions/active` 指向该工作区默认打开的会话。`/sessions` 列出会话；`/session new`（或 `/new`）创建会话；`/session use <id>` 恢复会话。`/model <provider> <name>` 用所选模型创建新会话。`/workspace <目录>` 打开该工作区的活动会话，切回来仍可继续。正常退出和重启后会话也会保留。旧 `.athena/journal.jsonl` 及平铺会话文件会自动导入。
 
-若进程在一轮中途退出，恢复该会话时会注入 `<turn_aborted>` 标记，提醒模型不要重复操作；工具副作用不会重放。恢复需要原 provider 的可用配置（API key 或可连接的 Ollama 服务）；失败时会报告错误并创建新会话。建议把 `.athena/` 加入项目的 `.gitignore`。
+若进程在一轮中途退出，恢复该会话时会注入 `<turn_aborted>` 标记，提醒模型不要重复操作；工具副作用不会重放。恢复需要原 provider 的可用配置（API key 或可连接的 Ollama 服务）；失败时会报告错误并创建新会话。`.athena/` 已在 `.gitignore` 中。会话日志可能含有对话内容，不要提交。
 
 ## 内置文件工具
 

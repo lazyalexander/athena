@@ -2,10 +2,12 @@ import type { TextModel } from "../agent/core.ts";
 import type { JournalEvent } from "../session/journal.ts";
 import type { Workspace } from "../workspace/workspace.ts";
 
+export type ClientOptions = { notice?: string };
+
 export interface Provider {
   readonly id: string;
   readonly defaultModel: string;
-  createClient(model: string, workspace?: Workspace): TextModel;
+  createClient(model: string, workspace?: Workspace, options?: ClientOptions): TextModel;
   listModels?(): Promise<string[]>;
   validateModel?(name: string): Promise<void>;
   restore?(model: string, events: JournalEvent[], notice: string, workspace?: Workspace): TextModel;

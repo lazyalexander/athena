@@ -161,7 +161,9 @@ export function createOllamaProvider(config: { host?: string; model?: string } =
   return {
     id: "ollama",
     defaultModel: config.model ?? "qwen3:1.7b",
-    createClient: (model, workspace) => new OllamaClient(model, workspace, host),
+    createClient: (model, workspace, options) => new OllamaClient(
+      model, workspace, host, options?.notice ? { notice: options.notice } : undefined,
+    ),
     listModels,
     validateModel: async (name) => {
       const installed = await listModels();
