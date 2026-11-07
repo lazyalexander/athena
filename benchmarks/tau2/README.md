@@ -2,13 +2,14 @@
 
 # τ-bench adapter
 
-This adapter runs Athena's model clients under the official τ-bench orchestrator. The evaluator owns domain tools, user simulation, and scoring. `bridge.ts` asks `createProviderLayer` for a client, forwards tool definitions, and returns model tool calls. It does not execute tools or impose airline policy checks. Domain policy is passed as system instructions. Keys stay in the environment.
+This adapter runs Athena's model clients under the official τ-bench orchestrator. The evaluator owns domain tools, user simulation, and scoring. `bridge.ts` submits an `external_step` op and returns the events from that submission plus the calls the evaluator should run. It does not execute tools. `ATHENA_PERMISSION_MODE` selects `untrusted`, `on-request`, or `never` for that process. The default is `never`, so every proposed call is returned. `on-request` allows `get_*`, `search_*`, and the built-in read-only tools, and denies the rest because the bridge has no prompt. `untrusted` denies every call. Domain policy is passed as system instructions, with a short write checklist appended. The checklist does not block a tool call. Keys stay in the environment.
 
 Install the official `sierra-research/tau2-bench` checkout and its Python dependencies, then run from that checkout:
 
 ```sh
 ATHENA_NODE=/path/to/node \
 ATHENA_BENCH_PROVIDER=deepseek \
+ATHENA_PERMISSION_MODE=never \
 DEEPSEEK_API_KEY=... \
 .venv/bin/python /path/to/athena/benchmarks/tau2/run.py run \
   --domain airline --agent athena \

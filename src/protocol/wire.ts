@@ -16,6 +16,13 @@ export type PermissionGate = "allow" | "ask";
 
 export type Op =
   | { type: "user_input"; text: string; permissionMode?: PermissionMode }
+  | {
+      /** One model step whose allowed tool calls are executed outside this process. */
+      type: "external_step";
+      input: string | { callId: string; output: string }[];
+      tools: { name: string; description?: string; parameters: Record<string, unknown> }[];
+      permissionMode?: PermissionMode;
+    }
   | { type: "exec_approval"; id: string; decision: ReviewDecision }
   | { type: "interrupt" }
   | { type: "configure_permission"; permissionMode: PermissionMode }
@@ -50,10 +57,10 @@ export function parsePermissionMode(value: string | undefined): PermissionMode |
   return undefined;
 }
 
-/** `never` allows the call. `on-request` allows read-only tools. `untrusted` always asks. */
-export function decidePermission(mode: PermissionMode, tool: string): PermissionGate {
+/** `never` allows the call. `on-request` allows names in `readOnly`. `untrusted` always asks. */
+export function decidePermission(mode: PermissionMode, tool: string, readOnly: ReadonlySet<string> = READ_ONLY_TOOLS): PermissionGate {
   if (mode === "never") return "allow";
-  if (mode === "on-request" && READ_ONLY_TOOLS.has(tool)) return "allow";
+  if (mode === "on-request" && readOnly.has(tool)) return "allow";
   return "ask";
 }
 

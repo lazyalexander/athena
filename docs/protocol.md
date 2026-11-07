@@ -11,6 +11,7 @@ The protocol has two directions, in the same shape as Codex. A client submits an
 | Op | Event messages |
 |---|---|
 | `user_input` | `turn_started`, `exec_approval_request` when a person must answer, `exec_command_begin`, `exec_command_end`, `agent_message`, `turn_complete`. A model failure is `error`. |
+| `external_step` | Same permission events for one model step. Allowed calls are returned to the caller and are not executed here. The τ-bench bridge submits this op. `ATHENA_PERMISSION_MODE` sets the session mode. The default for that bridge is `never`. |
 | `exec_approval` | Resolves the matching `exec_approval_request`. `approved`, `denied`, or `abort`. |
 | `interrupt` | `turn_aborted` when no turn is waiting. A running turn stops and then emits `turn_aborted`. |
 | `configure_permission` | `session_configured` |

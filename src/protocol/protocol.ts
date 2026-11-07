@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import type { ModelControl, ReActEvent, TextIO, TextModel } from "../agent/core.ts";
-import type { ToolRegistry } from "../agent/tools.ts";
+import type { ToolRegistry, ToolSet } from "../agent/tools.ts";
 import { Journal, findUnfinishedTurn } from "../session/journal.ts";
 import { Sessions } from "../session/sessions.ts";
 import type { Workspace } from "../workspace/workspace.ts";
@@ -95,6 +95,10 @@ export type ProtocolHost = {
   turnActive?: boolean;
   eventSeq?: { n: number };
   approvalSeq?: { n: number };
+  /** Names `on-request` may allow. Defaults to the built-in read-only tools. */
+  readOnlyTools?: ReadonlySet<string>;
+  /** Filled by `external_step` with the calls the outside executor should run. */
+  externalResult?: { text: string; calls: { name: string; callId: string; arguments: string }[] };
   runTurn(input: string, options: { approve?: (request: { tool: string; arguments: string }) => Promise<boolean>; onEvent?: (event: ReActEvent) => void }): Promise<string>;
 };
 
@@ -201,6 +205,8 @@ export async function submit(host: ProtocolHost, op: Op): Promise<CommandStatus>
   switch (op.type) {
     case "user_input":
       return runUserInput(host, op, emit);
+    case "external_step":
+      return runExternalStep(host, op, emit);
     case "exec_approval":
       return resolveApproval(host, op, emit);
     case "interrupt":
@@ -288,7 +294,7 @@ async function runUserInput(host: ProtocolHost, op: Extract<Op, { type: "user_in
 
 async function approveTool(host: ProtocolHost, mode: PermissionMode, request: { tool: string; arguments: string }, emit: (msg: EventMsg) => void): Promise<boolean> {
   if (host.abortTurn) throw new Error("Turn interrupted");
-  if (decidePermission(mode, request.tool) === "allow") return true;
+  if (decidePermission(mode, request.tool, host.readOnlyTools) === "allow") return true;
   if (!host.reviewLine) return false;
   const approvalId = `approval-${++(host.approvalSeq ??= { n: 0 }).n}`;
   emit({ type: "exec_approval_request", approvalId, tool: request.tool, arguments: request.arguments });
@@ -301,6 +307,64 @@ async function approveTool(host: ProtocolHost, mode: PermissionMode, request: { 
   });
   if (decision === "abort" || host.abortTurn) throw new Error("Turn interrupted");
   return decision === "approved";
+}
+
+async function runExternalStep(host: ProtocolHost, op: Extract<Op, { type: "external_step" }>, emit: (msg: EventMsg) => void): Promise<CommandStatus> {
+  if (typeof op.input === "string" && !op.input.trim()) {
+    emit({ type: "error", message: "external_step requires input" });
+    return { effect: "continue", ok: false };
+  }
+  host.externalResult = undefined;
+  const permissionMode = op.permissionMode ?? currentMode(host);
+  const tools: ToolSet = {
+    definitions: op.tools,
+    call: async () => { throw new Error("The benchmark owns tool execution"); },
+  };
+  const turnId = `turn-${++host.turnCount.n}`;
+  host.turnActive = true;
+  emit({ type: "turn_started", turnId, permissionMode });
+  try {
+    let next: string | { callId: string; output: string }[] = op.input;
+    let text = "";
+    const approved: { name: string; callId: string; arguments: string }[] = [];
+    for (let step = 0; step < 4 && approved.length === 0; step++) {
+      const result = await host.model.generate(next, tools);
+      text = result.text;
+      const denied: { callId: string; output: string }[] = [];
+      const seen = new Set<string>();
+      for (const call of result.calls) {
+        if (!call.callId || seen.has(call.callId)) throw new Error("Duplicate or missing tool call ID");
+        seen.add(call.callId);
+        const allowed = await approveTool(host, permissionMode, { tool: call.name, arguments: call.arguments }, emit);
+        if (!allowed) {
+          const output = `Permission denied for ${call.name}`;
+          denied.push({ callId: call.callId, output });
+          emit({ type: "exec_command_end", callId: call.callId, tool: call.name, ok: false, output });
+          continue;
+        }
+        emit({ type: "exec_command_begin", callId: call.callId, tool: call.name });
+        approved.push(call);
+      }
+      if (approved.length > 0 || denied.length === 0) break;
+      next = denied;
+    }
+    host.externalResult = { text, calls: approved };
+    if (approved.length === 0) {
+      emit({ type: "agent_message", message: text });
+      emit({ type: "turn_complete", turnId, message: text });
+    }
+    return { effect: "continue", ok: true };
+  } catch (error) {
+    if (host.abortTurn) {
+      host.abortTurn = false;
+      emit({ type: "turn_aborted", reason: "interrupt" });
+      return { effect: "continue", ok: false };
+    }
+    emit({ type: "error", message: error instanceof Error ? error.message : String(error) });
+    return { effect: "continue", ok: false };
+  } finally {
+    host.turnActive = false;
+  }
 }
 
 function resolveApproval(host: ProtocolHost, op: Extract<Op, { type: "exec_approval" }>, emit: (msg: EventMsg) => void): CommandStatus {

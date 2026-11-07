@@ -2,13 +2,14 @@
 
 # τ-bench 适配器
 
-这个适配器在官方 τ-bench 编排器下运行 Athena 的模型客户端。评测方拥有领域工具、用户模拟和打分。`bridge.ts` 通过 `createProviderLayer` 取得客户端，转发工具定义，并返回模型的工具调用。它不执行工具，也不做航空政策检查。领域政策作为系统说明传入。密钥留在环境变量中。
+这个适配器在官方 τ-bench 编排器下运行 Athena 的模型客户端。评测方拥有领域工具、用户模拟和打分。`bridge.ts` 提交 `external_step`，并返回这次提交产生的事件，以及评测方应该执行的调用。它不执行工具。`ATHENA_PERMISSION_MODE` 为该进程选择 `untrusted`、`on-request` 或 `never`。默认是 `never`，因此每个提议的调用都会返回。`on-request` 允许 `get_*`、`search_*` 和内置只读工具，其余调用会被拒绝，因为桥没有提示可回答。`untrusted` 拒绝每一次调用。领域政策作为系统说明传入，后面附有一段写操作检查清单。清单不会拦截工具调用。密钥留在环境变量中。
 
 先安装官方 `sierra-research/tau2-bench` 检出及其 Python 依赖，然后在该检出中运行：
 
 ```sh
 ATHENA_NODE=/path/to/node \
 ATHENA_BENCH_PROVIDER=deepseek \
+ATHENA_PERMISSION_MODE=never \
 DEEPSEEK_API_KEY=... \
 .venv/bin/python /path/to/athena/benchmarks/tau2/run.py run \
   --domain airline --agent athena \

@@ -135,3 +135,60 @@ test("permission mode is passed on a user_input op and gates tool approval", asy
   assert.equal(idle.ok, true);
   assert.ok(events.includes("turn_aborted"));
 });
+
+test("external_step returns allowed calls and denies the rest without executing them", async () => {
+  const events: string[] = [];
+  let steps = 0;
+  const host: ProtocolHost = {
+    surface: "cli",
+    io: { write() {}, [Symbol.asyncIterator]: async function* () {} },
+    model: {
+      generate: async (input) => {
+        steps += 1;
+        if (typeof input === "string") {
+          return { text: "", calls: [
+            { name: "get_user_details", callId: "r1", arguments: "{}" },
+            { name: "book_reservation", callId: "w1", arguments: "{}" },
+          ] };
+        }
+        return { text: "denied", calls: [] };
+      },
+    },
+    tools: new ToolRegistry(),
+    turnCount: { n: 0 },
+    permissionMode: "on-request",
+    readOnlyTools: new Set(["get_user_details", "read_file"]),
+    onEvent: (event) => events.push(event.msg.type),
+    runTurn: async () => { throw new Error("runTurn should not run"); },
+  };
+  const allowed = await submit(host, {
+    type: "external_step",
+    input: "book it",
+    tools: [
+      { name: "get_user_details", parameters: { type: "object" } },
+      { name: "book_reservation", parameters: { type: "object" } },
+    ],
+    permissionMode: "never",
+  });
+  assert.equal(allowed.ok, true);
+  assert.deepEqual(host.externalResult?.calls.map((call) => call.name), ["get_user_details", "book_reservation"]);
+  assert.equal(steps, 1);
+  assert.ok(events.includes("turn_started"));
+  assert.equal(events.filter((type) => type === "exec_command_begin").length, 2);
+
+  events.length = 0;
+  steps = 0;
+  const gated = await submit(host, {
+    type: "external_step",
+    input: "book it",
+    tools: [
+      { name: "get_user_details", parameters: { type: "object" } },
+      { name: "book_reservation", parameters: { type: "object" } },
+    ],
+  });
+  assert.equal(gated.ok, true);
+  assert.deepEqual(host.externalResult?.calls.map((call) => call.name), ["get_user_details"]);
+  assert.equal(steps, 1);
+  assert.ok(events.includes("exec_command_end"));
+  assert.equal(events.includes("turn_complete"), false);
+});

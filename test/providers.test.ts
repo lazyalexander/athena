@@ -49,6 +49,34 @@ test("openai provider requires an API key and does not list models", async () =>
   assert.equal(provider.validateModel, undefined);
 });
 
+test("responses client retries an empty body and does not retry a 400", async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  try {
+    globalThis.fetch = async () => {
+      calls += 1;
+      if (calls === 1) return new Response("null", { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({
+        id: "r1",
+        output: [{ type: "message", content: [{ type: "output_text", text: "ok" }] }],
+      }), { status: 200 });
+    };
+    const { createOpenAIProvider } = await import("../src/providers/openai.ts");
+    const client = createOpenAIProvider({ apiKey: "test-key" }).createClient("gpt-6-astra");
+    assert.equal((await client.generate("hi", { definitions: [], call: async () => "" })).text, "ok");
+    assert.equal(calls, 2);
+    calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ error: { message: "bad request" } }), { status: 400 });
+    };
+    await assert.rejects(client.generate("hi", { definitions: [], call: async () => "" }), /bad request/);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("deepseek provider uses its own key env var and base URL", async () => {
   const { createResponsesProvider } = await import("../src/providers/openai.ts");
   const provider = createResponsesProvider({

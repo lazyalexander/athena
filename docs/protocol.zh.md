@@ -11,6 +11,7 @@ TUI 里用 `/help`。命令行用 `npm run cli` 或 `npm run cli -- help`。两�
 | Op | 事件 |
 |---|---|
 | `user_input` | `turn_started`；需要人回答时有 `exec_approval_request`；然后是 `exec_command_begin`、`exec_command_end`、`agent_message`、`turn_complete`。模型失败是 `error`。 |
+| `external_step` | 同一次模型步骤上的权限事件。允许的调用交还给调用方，不在这里执行。τ-bench 桥提交这个 op。`ATHENA_PERMISSION_MODE` 设置会话模式。该桥的默认值是 `never`。 |
 | `exec_approval` | 回应匹配的 `exec_approval_request`。决定是 `approved`、`denied` 或 `abort`。 |
 | `interrupt` | 没有正在等待的轮次时发出 `turn_aborted`。正在跑的轮次会停下来，然后发出 `turn_aborted`。 |
 | `configure_permission` | `session_configured` |

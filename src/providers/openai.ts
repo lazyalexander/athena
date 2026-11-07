@@ -48,29 +48,22 @@ export class OpenAIClient {
       ? [{ role: "user", content: input }]
       : input.map((result) => ({ type: "function_call_output", call_id: result.callId, output: result.output }));
     const requestInput = this.stateless ? [...this.history, ...inputItems] : typeof input === "string" ? input : inputItems;
-    const response = await fetch(`${this.baseUrl}/responses`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: this.model,
-        instructions: [
-          "Use tools when the user's request requires an external action or information. If application knowledge is available, look up relevant rules before deciding. Obtain changing facts from tools, not memory. Before a state-changing call, check the applicable rule against those facts; use elapsed_time for timestamp limits when available. Do not claim an action succeeded unless its tool result confirms it.",
-          ...(this.workspace ? [`Current workspace: ${this.workspace.root}. This path is context only; use available tools for any file operation.`] : []),
-          ...(this.notice ? [this.notice] : []),
-        ].join("\n"),
-        input: requestInput,
-        ...(!this.stateless && this.previousResponseId ? { previous_response_id: this.previousResponseId } : {}),
-        ...(tools.definitions.length ? {
-          tools: tools.definitions.map((tool) => ({ type: "function", ...tool })),
-        } : {}),
-      }),
+    const body = await postResponses(`${this.baseUrl}/responses`, {
+      Authorization: `Bearer ${this.apiKey}`,
+      "Content-Type": "application/json",
+    }, {
+      model: this.model,
+      instructions: [
+        "Use tools when the user's request requires an external action or information. If application knowledge is available, look up relevant rules before deciding. Obtain changing facts from tools, not memory. Before a state-changing call, check the applicable rule against those facts; use elapsed_time for timestamp limits when available. Do not claim an action succeeded unless its tool result confirms it.",
+        ...(this.workspace ? [`Current workspace: ${this.workspace.root}. This path is context only; use available tools for any file operation.`] : []),
+        ...(this.notice ? [this.notice] : []),
+      ].join("\n"),
+      input: requestInput,
+      ...(!this.stateless && this.previousResponseId ? { previous_response_id: this.previousResponseId } : {}),
+      ...(tools.definitions.length ? {
+        tools: tools.definitions.map((tool) => ({ type: "function", ...tool })),
+      } : {}),
     });
-    const body = (await response.json()) as ResponseBody;
-    if (!response.ok) throw new Error(body.error?.message ?? `HTTP ${response.status}`);
-    if (!body.id) throw new Error("OpenAI response has no id");
     const calls = (body.output ?? []).filter((item) => item.type === "function_call").map((item) => {
       if (!item.name || !item.call_id || item.arguments === undefined) {
         throw new Error("Malformed function call");
@@ -84,6 +77,34 @@ export class OpenAIClient {
     this.previousResponseId = body.id;
     return { text, calls, responseId: body.id };
   }
+}
+
+/** Retries a truncated body, an empty 200, or a 429/5xx. A 4xx is returned immediately. */
+async function postResponses(url: string, headers: Record<string, string>, payload: unknown): Promise<ResponseBody> {
+  let last = "Empty model response";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+    let response: Response;
+    try {
+      response = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
+    } catch (error) {
+      last = error instanceof Error ? error.message : String(error);
+      continue;
+    }
+    let body: ResponseBody | null = null;
+    let truncated = false;
+    try {
+      body = (await response.json()) as ResponseBody | null;
+    } catch {
+      truncated = true;
+    }
+    if (!response.ok && response.status !== 429 && response.status < 500) {
+      throw new Error(body?.error?.message ?? `HTTP ${response.status}`);
+    }
+    if (response.ok && body?.id) return body;
+    last = body?.error?.message ?? (truncated ? "Truncated model response" : "Empty model response");
+  }
+  throw new Error(last);
 }
 
 export function createResponsesProvider(config: {
