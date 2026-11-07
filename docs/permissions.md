@@ -14,7 +14,7 @@ The core defines only the hook and its allow/deny result. Applications or plugin
 
 Each user message creates a fresh `TurnToolSet`. Before dispatch, it prompts for the exact tool name and JSON arguments. Only `y` or `yes` approves. The same call may repeat within that turn without another prompt. A changed argument, another tool, or the next user message requires a new decision. Denials are cached for that turn. EOF denies. Unknown tools are rejected before prompting. The gate is cleared when the turn finishes or fails. The model receives a tool error on denial and may continue without that tool.
 
-This gate applies to calls through the TUI's `runCore` path. Direct library use of `runTurn` with a raw `ToolRegistry` does not automatically apply it. Approval is in memory only; there are no persistent grants, audit receipts, or mid-call cancellation yet.
+`runTurn` creates and closes a fresh `TurnToolSet` for each turn. TUI calls supply an interactive approval callback; direct library calls deny tool execution unless the host explicitly supplies an approval callback. Registered tools still run their own `beforeExecute` checks after approval. Low-level `ToolRegistry.call` is for trusted host code, not an agent execution entry point. Approval is in memory only; there are no persistent grants, audit receipts, or mid-call cancellation yet.
 
 ## Boundary and owner
 

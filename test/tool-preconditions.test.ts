@@ -38,7 +38,7 @@ test("business example rejects an ineligible cancellation before its tool runs",
     observation = (input as ToolResult[])[0].output;
     return { text: "Cannot cancel", calls: [] };
   } };
-  assert.equal(await runTurn(model, tools, "cancel"), "Cannot cancel");
+  assert.equal(await runTurn(model, tools, "cancel", { approve: async () => true }), "Cannot cancel");
   assert.match(observation, /older than 24 hours/);
   assert.equal(executions, 0);
 });

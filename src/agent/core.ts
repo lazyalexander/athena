@@ -1,7 +1,7 @@
-import type { ToolSet } from "./tools.ts";
+import { ToolRegistry, type ToolSet } from "./tools.ts";
 import type { Workspace } from "../workspace/workspace.ts";
 import { Journal, findUnfinishedTurn, type JournalEvent } from "../session/journal.ts";
-import { TurnToolSet } from "./permissions.ts";
+import { TurnToolSet, type ApprovalPrompt } from "./permissions.ts";
 import { existsSync } from "node:fs";
 import { Sessions } from "../session/sessions.ts";
 
@@ -44,41 +44,48 @@ export type ReActEvent =
 export type ReActOptions = {
   maxSteps?: number;
   onEvent?: (event: ReActEvent) => void;
+  approve?: ApprovalPrompt;
 };
 
 /** Alternate model decisions and tool observations until a final answer. */
-export async function runTurn(model: TextModel, tools: ToolSet, input: string, options: ReActOptions = {}): Promise<string> {
+export async function runTurn(model: TextModel, registry: ToolRegistry, input: string, options: ReActOptions = {}): Promise<string> {
+  if (!(registry instanceof ToolRegistry)) throw new Error("runTurn requires a ToolRegistry");
   const maxSteps = options.maxSteps ?? 16;
   if (!Number.isInteger(maxSteps) || maxSteps < 1) throw new Error("maxSteps must be a positive integer");
-  let next: string | ToolResult[] = input;
-  for (let step = 1; step <= maxSteps; step++) {
-    const result = await model.generate(next, tools);
-    options.onEvent?.({ type: "step", step, text: result.text, calls: result.calls, responseId: result.responseId });
-    if (result.calls.length === 0) return result.text || "(No text response)";
-    const seen = new Set<string>();
-    const observations: ToolResult[] = [];
-    for (const call of result.calls) {
-      if (!call.callId || seen.has(call.callId)) throw new Error("Duplicate or missing tool call ID");
-      seen.add(call.callId);
-      options.onEvent?.({ type: "action", step, tool: call.name, callId: call.callId });
-      let output: string;
-      let ok = true;
-      try {
-        output = await tools.call(call.name, JSON.parse(call.arguments));
-      } catch (error) {
-        ok = false;
-        output = `Tool error: ${error instanceof Error ? error.message : String(error)}`;
+  const tools = new TurnToolSet(registry, options.approve ?? (async () => false));
+  try {
+    let next: string | ToolResult[] = input;
+    for (let step = 1; step <= maxSteps; step++) {
+      const result = await model.generate(next, tools);
+      options.onEvent?.({ type: "step", step, text: result.text, calls: result.calls, responseId: result.responseId });
+      if (result.calls.length === 0) return result.text || "(No text response)";
+      const seen = new Set<string>();
+      const observations: ToolResult[] = [];
+      for (const call of result.calls) {
+        if (!call.callId || seen.has(call.callId)) throw new Error("Duplicate or missing tool call ID");
+        seen.add(call.callId);
+        options.onEvent?.({ type: "action", step, tool: call.name, callId: call.callId });
+        let output: string;
+        let ok = true;
+        try {
+          output = await tools.call(call.name, JSON.parse(call.arguments));
+        } catch (error) {
+          ok = false;
+          output = `Tool error: ${error instanceof Error ? error.message : String(error)}`;
+        }
+        observations.push({ callId: call.callId, output });
+        options.onEvent?.({ type: "observation", step, tool: call.name, callId: call.callId, ok, output });
       }
-      observations.push({ callId: call.callId, output });
-      options.onEvent?.({ type: "observation", step, tool: call.name, callId: call.callId, ok, output });
+      next = observations;
     }
-    next = observations;
+    throw new Error(`ReAct step limit reached (${maxSteps})`);
+  } finally {
+    tools.close();
   }
-  throw new Error(`ReAct step limit reached (${maxSteps})`);
 }
 
 /** Runs one conversation until input ends or the user exits. */
-export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, workspace?: Workspace, models?: ModelControl, journal?: Journal, context?: CoreContext): Promise<void> {
+export async function runCore(model: TextModel, tools: ToolRegistry, io: TextIO, workspace?: Workspace, models?: ModelControl, journal?: Journal, context?: CoreContext): Promise<void> {
   io.write("Athena\nType /exit to quit. Use /workspace or /model for settings.\n\n");
   io.write("you> ");
 
@@ -226,13 +233,13 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
       const turnId = `turn-${++turnCount}`;
       activeJournal?.record({ type: "turn_start", turnId, ts: Date.now() });
       activeJournal?.record({ type: "user", turnId, text: input });
-      const turnTools = new TurnToolSet(tools, async (request) => {
-        io.write(`Allow ${request.tool} ${request.arguments} for this turn? [y/N] `);
-        const decision = await lines.next();
-        return !decision.done && /^(y|yes)$/i.test(decision.value.trim());
-      });
       try {
-        const answer = await runTurn(model, turnTools, input, {
+        const answer = await runTurn(model, tools, input, {
+          approve: async (request) => {
+            io.write(`Allow ${request.tool} ${request.arguments} for this turn? [y/N] `);
+            const decision = await lines.next();
+            return !decision.done && /^(y|yes)$/i.test(decision.value.trim());
+          },
           onEvent: (event) => {
             if (event.type === "action") io.write(`  → ${event.tool}\n`);
             else if (event.type === "observation") io.write(`  ← ${event.tool}: ${event.ok ? "ok" : "error"}\n`);
@@ -248,8 +255,6 @@ export async function runCore(model: TextModel, tools: ToolSet, io: TextIO, work
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         io.write(`Request failed: ${message}\n\n`);
-      } finally {
-        turnTools.close();
       }
     }
     io.write("you> ");

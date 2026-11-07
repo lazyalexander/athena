@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { runCore, type ModelStep, type ToolResult } from "../src/agent/core.ts";
+import { runCore, runTurn, type ModelStep, type ToolResult } from "../src/agent/core.ts";
 import { TurnToolSet } from "../src/agent/permissions.ts";
 import { ToolRegistry } from "../src/agent/tools.ts";
 
@@ -56,4 +56,21 @@ test("changed arguments need fresh approval and EOF denies", async () => {
   });
   assert.equal(denied, true);
   assert.equal(executions, 2);
+});
+
+test("direct runTurn denies tools by default and scopes explicit approval to one turn", async () => {
+  const tools = new ToolRegistry();
+  let executions = 0;
+  tools.register({ definition: { name: "change", parameters: { type: "object" } }, execute: async () => { executions++; return "changed"; } });
+  let callNumber = 0;
+  const model = { generate: async (input: string | ToolResult[]): Promise<ModelStep> => {
+    if (typeof input === "string") return { text: "", calls: [{ name: "change", callId: `c${++callNumber}`, arguments: "{}" }] };
+    return { text: input[0]!.output, calls: [] };
+  } };
+  assert.match(await runTurn(model, tools, "first"), /Permission denied/);
+  assert.equal(executions, 0);
+  assert.equal(await runTurn(model, tools, "second", { approve: async () => true }), "changed");
+  assert.equal(executions, 1);
+  assert.match(await runTurn(model, tools, "third"), /Permission denied/);
+  assert.equal(executions, 1);
 });

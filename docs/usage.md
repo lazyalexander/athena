@@ -2,7 +2,7 @@
 
 # Usage
 
-The core uses a bounded ReAct loop: each model step either returns a final answer or requests tools; tool observations are sent back for the next step. The TUI shows tool names and success status. Before a tool call, it asks for approval of the exact tool name and arguments. Approval lasts for the current user turn only; a changed call or the next turn requires fresh approval. Only `y` or `yes` allows execution; denial and EOF fail closed.
+The core uses a bounded ReAct loop: each model step either returns a final answer or requests tools; tool observations are sent back for the next step. Every `runTurn` creates a fresh authorization gate and denies tool calls by default. The TUI supplies an interactive approval callback and shows tool names and success status. Approval lasts for the current user turn only; a changed call or the next turn requires fresh approval. Only `y` or `yes` allows execution; denial and EOF fail closed.
 
 ## Providers and models
 

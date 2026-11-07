@@ -40,7 +40,7 @@ test("translated MCP result is written into the selected workspace", async () =>
       return { text: "Saved translation.", calls: [] };
     } };
 
-    assert.equal(await runTurn(model, tools, "Translate hello and save it."), "Saved translation.");
+    assert.equal(await runTurn(model, tools, "Translate hello and save it.", { approve: async () => true }), "Saved translation.");
     assert.equal(step, 3);
     assert.equal(await readFile(join(project, "translation.txt"), "utf8"), "bonjour");
   } finally {

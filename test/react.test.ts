@@ -20,7 +20,7 @@ test("ReAct executes actions in order and feeds observations back to the model",
     assert.deepEqual(input, [{ callId: "b", output: "B" }]);
     return { text: "AB", calls: [] };
   } };
-  assert.equal(await runTurn(model, tools, "start", { onEvent: (event) => events.push(event) }), "AB");
+  assert.equal(await runTurn(model, tools, "start", { approve: async () => true, onEvent: (event) => events.push(event) }), "AB");
   assert.deepEqual(order, ["first", "second"]);
   assert.deepEqual(events.map((event) => event.type), ["step", "action", "observation", "step", "action", "observation", "step"]);
 });
@@ -46,7 +46,7 @@ test("runTurn emits a step event after each model call, carrying responseId", as
     if (step === 1) return { text: "", calls: [{ name: "noop", callId: "c1", arguments: "{}" }], responseId: "r1" };
     return { text: "done", calls: [] };
   } };
-  await runTurn(model, tools, "start", { onEvent: (event) => events.push(event) });
+  await runTurn(model, tools, "start", { approve: async () => true, onEvent: (event) => events.push(event) });
   assert.equal(events[0].type, "step");
   assert.deepEqual(events[0], { type: "step", step: 1, text: "", calls: [{ name: "noop", callId: "c1", arguments: "{}" }], responseId: "r1" });
   const last = events[events.length - 1];

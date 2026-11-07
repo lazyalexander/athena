@@ -26,7 +26,7 @@ The TUI's turn approval remains separate from business eligibility. Approval doe
 
 ## Evaluation and delivery plan
 
-- **Implemented:** generic pre-execution hook, workspace knowledge search, time calculation, model guidance, and tests for repeat approval, denied/failed checks, source boundaries, and offset-aware arithmetic.
+- **Implemented:** generic pre-execution hook, workspace knowledge search, time calculation, model guidance, and tests for repeat approval, denied/failed checks, source boundaries, and offset-aware arithmetic. `runTurn` now creates a fresh authorization gate for every entry path and denies tool calls by default unless its host supplies approval.
 - **Next:** attach real application policies and data tools in the application/plugin package; test both allowed and denied transitions against its authoritative state. Add trace-level evaluation of whether the model found the right passage and used the right facts. Do not claim that the current unit tests prove model behavior.
 - **Benchmark:** keep the official τ-bench adapter free of workspace knowledge and business checks for raw-model diagnostics. If a guarded system is evaluated, report it separately with its tools, prompts, rule implementation, task set, and result files. A one-task smoke run is not a leaderboard result.
 

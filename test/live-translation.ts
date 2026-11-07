@@ -29,7 +29,7 @@ try {
   const events: ReActEvent[] = [];
   const answer = await runTurn(model, tools,
     "Use the translation tool to translate 'hello' to French. Then use write_file to save exactly the translated word to translation.txt in the current workspace. Confirm after both tools succeed.",
-    { onEvent: (event) => events.push(event) },
+    { approve: async () => true, onEvent: (event) => events.push(event) },
   );
   const content = await readFile(join(directory, "translation.txt"), "utf8");
   assert.equal(content, "bonjour");
