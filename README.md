@@ -17,6 +17,7 @@ For local models with Ollama, run `ollama pull qwen3:1.7b` first — no API key 
 ## Documentation
 
 - [Usage: providers, workspace, file tools, MCP, sandbox](docs/usage.md)
+- [Protocol: operations shared by the command line and the TUI](docs/protocol.md)
 - [Permission system](docs/permissions.md)
 - [Application knowledge and action decisions](docs/knowledge-design.md)
 
@@ -26,6 +27,8 @@ For local models with Ollama, run `ollama pull qwen3:1.7b` first — no API key 
 - `src/session/`: session identity, journal, and recovery.
 - `src/workspace/`: workspace paths, file tools, and process sandbox.
 - `src/providers/`: LLM provider layer. Every model connection enters through `createProviderLayer`.
+- `src/protocol/`: operations shared by the command line and the TUI.
+- `src/cli.ts`: one-shot command line. `src/tui.ts`: interactive session. Both open `src/app.ts`.
 - `src/mcp/`: MCP client integration.
 - `src/knowledge/`: optional workspace document search.
-- `src/tui.ts`: terminal entry point and wiring.
+

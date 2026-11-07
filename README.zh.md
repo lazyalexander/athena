@@ -17,6 +17,7 @@ npm start
 ## 文档
 
 - [使用说明：provider、工作区、文件工具、MCP、沙箱](docs/usage.zh.md)
+- [协议：命令行和 TUI 都能做的操作](docs/protocol.zh.md)
 - [权限系统](docs/permissions.zh.md)
 - [应用知识与动作决策](docs/knowledge-design.zh.md)
 
@@ -26,6 +27,8 @@ npm start
 - `src/session/`：会话身份、日志与恢复。
 - `src/workspace/`：工作区路径、文件工具和进程沙箱。
 - `src/providers/`：LLM provider 层。所有模型连接都从 `createProviderLayer` 进入。
+- `src/protocol/`：命令行和 TUI 共用的操作。
+- `src/cli.ts`：一次性命令行。`src/tui.ts`：交互会话。两者都打开 `src/app.ts`。
 - `src/mcp/`：MCP 客户端接入。
 - `src/knowledge/`：可选的工作区文档检索。
-- `src/tui.ts`：终端入口与组件组装。
+

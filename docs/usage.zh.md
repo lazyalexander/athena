@@ -4,6 +4,8 @@
 
 核心是一个有步数上限的 ReAct 循环：每一步模型要么返回最终答案，要么请求工具调用；工具结果会送回模型进行下一步。每次 `runTurn` 都会创建新的授权门，默认拒绝工具调用。TUI 提供交互式批准回调并显示工具名称和执行状态。批准仅对当前用户轮次有效；参数变更或下一轮都需要重新批准。只有输入 `y` 或 `yes` 才允许执行；拒绝和 EOF 均按拒绝处理。
 
+宿主操作集中在同一份协议里。命令行和 TUI 都能列出帮助、发送一条消息、显示或切换模型、显示或切换工作区、列出会话、创建或恢复会话，以及开始新对话。离开会话只属于 TUI。操作清单、具体命令和批准方式的差别见 [protocol.zh.md](protocol.zh.md)（[English](protocol.md)）。`npm start` 打开 TUI。`npm run cli` 执行一个操作。
+
 ## Provider 与模型
 
 所有 LLM 连接都从 `src/providers/entry.ts` 的 `createProviderLayer` 进入。TUI 和 τ-bench 桥都使用这一层。内置连接是 `ollama`、`openai` 和 `deepseek`。启动时用 `ATHENA_PROVIDER` 选择。默认是 `ollama`，因为它是唯一无需 API key 的内置连接。

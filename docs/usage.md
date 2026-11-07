@@ -4,6 +4,8 @@
 
 The core uses a bounded ReAct loop: each model step either returns a final answer or requests tools; tool observations are sent back for the next step. Every `runTurn` creates a fresh authorization gate and denies tool calls by default. The TUI supplies an interactive approval callback and shows tool names and success status. Approval lasts for the current user turn only; a changed call or the next turn requires fresh approval. Only `y` or `yes` allows execution; denial and EOF fail closed.
 
+Host operations live in one protocol. The command line and the TUI can both list help, send a prompt, show or switch the model, show or switch the workspace, list sessions, create or resume a session, and start a new conversation. Leaving the session is TUI-only. The operation list, the exact commands, and the approval difference are in [protocol.md](protocol.md) ([中文](protocol.zh.md)). `npm start` opens the TUI. `npm run cli` runs one operation.
+
 ## Providers and models
 
 Every LLM connection enters through `createProviderLayer` in `src/providers/entry.ts`. The TUI and the τ-bench bridge both use that layer. The built-in connections are `ollama`, `openai`, and `deepseek`. `ATHENA_PROVIDER` selects one at startup. The default is `ollama`, because it is the only built-in connection that works without an API key.

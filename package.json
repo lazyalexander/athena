@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node --experimental-strip-types src/tui.ts",
+    "cli": "node --experimental-strip-types src/cli.ts",
     "check": "tsc --noEmit",
     "test": "node --experimental-strip-types --test test/*.test.ts"
   },
